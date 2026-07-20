@@ -42,6 +42,61 @@ class Combustible(TimestampMixin, Base):
     nombre: Mapped[str] = mapped_column(String(80), nullable=False)
 
 
+class Color(TimestampMixin, Base):
+    """Catálogo de color del vehículo."""
+
+    __tablename__ = "colores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class EstadoAbono(TimestampMixin, Base):
+    """Catálogo del ciclo de vida del abono de exclusividad.
+
+    NO_DEVENGADO: cobrado al firmar, aún no ganado por la empresa.
+    APLICADO_COMISION: la venta se concretó y el abono se descontó de la comisión.
+    RETENIDO: venta externa o desistimiento; la empresa lo conserva por gestión.
+    """
+
+    __tablename__ = "estados_abono"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class MotivoCierreActa(TimestampMixin, Base):
+    """Catálogo de motivos de cierre de un acta sin venta gestionada."""
+
+    __tablename__ = "motivos_cierre_acta"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)  # DESISTIMIENTO, VENTA_EXTERNA
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class TipoChecklistItem(TimestampMixin, Base):
+    """Catálogo del tipo de punto del checklist (documento / accesorio)."""
+
+    __tablename__ = "tipos_checklist_item"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)  # DOCUMENTO, ACCESORIO
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class EstadoChecklist(TimestampMixin, Base):
+    """Catálogo del estado de un punto del checklist en una recepción."""
+
+    __tablename__ = "estados_checklist"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)  # OK, FALTANTE, OBSERVADO
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
 class TipoComision(TimestampMixin, Base):
     """Catálogo de tipo de comisión de corretaje (Estándar 5% / Gold 3%).
 

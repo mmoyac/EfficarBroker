@@ -1,21 +1,21 @@
 ## 1. Modelo de datos
 
-- [ ] 1.1 Catálogos en `src/models/catalogs.py`: `estados_abono` (`NO_DEVENGADO`, `APLICADO_COMISION`, `RETENIDO`), `motivos_cierre_acta` (`DESISTIMIENTO`, `VENTA_EXTERNA`), `tipos_checklist_item` (`DOCUMENTO`, `ACCESORIO`) y `estados_checklist` (`OK`, `FALTANTE`, `OBSERVADO`) — estos dos últimos reemplazan strings hardcodeados existentes
-- [ ] 1.2 Modelo `ActaRecepcion` en `src/models/acta.py`: `vehiculo_id`, `cliente_id`, `captador_user_id`, `sucursal_id`, `sucursal_venta_id`, `km_ingreso`, `estado_id`, `fecha_recepcion`, orden de venta (`precio_venta_pactado`, `vigencia_dias`, `exclusividad_abono`, `tipo_comision_id`), venta (`vendedor_user_id`, `precio_venta_final`, `fecha_venta`), cierre (`cerrada`, `motivo_cierre_id`, `fecha_cierre`) y abono (`estado_abono_id`, `fecha_cobro_abono`, `fecha_resolucion_abono`)
-- [ ] 1.3 Adelgazar `Vehiculo` a identidad física: quitar `cliente_id`, `captador_user_id`, `sucursal_id`, `sucursal_venta_id`, `estado_id`, `km_ingreso`, `tipo_comision_id`, orden de venta y datos de venta
-- [ ] 1.3b Quitar de `Vehiculo` las columnas de texto `marca` y `modelo` (derivarlas de `version_id`) y hacer `version_id` obligatoria; `color` pasa a FK de catálogo
-- [ ] 1.4 Renombrar `VehiculoChecklist` → `ActaChecklist` y `VehiculoEstadoHistorial` → `ActaEstadoHistorial`, re-apuntando la FK a `acta_id`; reemplazar `ChecklistItem.tipo` y `ActaChecklist.estado` (hoy strings libres) por FK a sus catálogos
-- [ ] 1.5 Relaciones: `Vehiculo.actas` (todas, ordenadas desc) y `ActaRecepcion.vehiculo`
+- [x] 1.1 Catálogos en `src/models/catalogs.py`: `estados_abono` (`NO_DEVENGADO`, `APLICADO_COMISION`, `RETENIDO`), `motivos_cierre_acta` (`DESISTIMIENTO`, `VENTA_EXTERNA`), `tipos_checklist_item` (`DOCUMENTO`, `ACCESORIO`) y `estados_checklist` (`OK`, `FALTANTE`, `OBSERVADO`) — estos dos últimos reemplazan strings hardcodeados existentes
+- [x] 1.2 Modelo `ActaRecepcion` en `src/models/acta.py`: `vehiculo_id`, `cliente_id`, `captador_user_id`, `sucursal_id`, `sucursal_venta_id`, `km_ingreso`, `estado_id`, `fecha_recepcion`, orden de venta (`precio_venta_pactado`, `vigencia_dias`, `exclusividad_abono`, `tipo_comision_id`), venta (`vendedor_user_id`, `precio_venta_final`, `fecha_venta`), cierre (`cerrada`, `motivo_cierre_id`, `fecha_cierre`) y abono (`estado_abono_id`, `fecha_cobro_abono`, `fecha_resolucion_abono`)
+- [x] 1.3 Adelgazar `Vehiculo` a identidad física: quitar `cliente_id`, `captador_user_id`, `sucursal_id`, `sucursal_venta_id`, `estado_id`, `km_ingreso`, `tipo_comision_id`, orden de venta y datos de venta
+- [x] 1.3b Quitar de `Vehiculo` las columnas de texto `marca` y `modelo` (derivarlas de `version_id`) y hacer `version_id` obligatoria; `color` pasa a FK de catálogo
+- [x] 1.4 Renombrar `VehiculoChecklist` → `ActaChecklist` y `VehiculoEstadoHistorial` → `ActaEstadoHistorial`, re-apuntando la FK a `acta_id`; reemplazar `ChecklistItem.tipo` y `ActaChecklist.estado` (hoy strings libres) por FK a sus catálogos
+- [x] 1.5 Relaciones: `Vehiculo.actas` (todas, ordenadas desc) y `ActaRecepcion.vehiculo`
 
 ## 2. Migración
 
-- [ ] 2.1 Migración Alembic `0007`: crear `estados_abono`, `motivos_cierre_acta`, `actas_recepcion`, `acta_checklist`, `acta_estado_historial`
-- [ ] 2.2 Backfill: un acta por cada fila de `vehiculos`, preservando el `id` del vehículo como `id` del acta; `cerrada = (estado == VENDIDO)`; `estado_abono = APLICADO_COMISION` si vendida, `NO_DEVENGADO` si no
-- [ ] 2.3 Re-apuntar checklist e historial a `acta_id` y eliminar las tablas antiguas
-- [ ] 2.4 Eliminar de `vehiculos` las columnas migradas
-- [ ] 2.5 Índice único parcial `uq_acta_activa_por_vehiculo ON actas_recepcion(vehiculo_id) WHERE cerrada = false`
-- [ ] 2.6 `downgrade` que reconstruye las columnas de `vehiculos` desde el acta activa de cada vehículo
-- [ ] 2.7 Verificar la migración contra la base de desarrollo con datos de seed: conteos iguales, ninguna FK huérfana
+- [x] 2.1 Migración Alembic `0010` (head actual: `0009_acta_corporativa`): crear `estados_abono`, `motivos_cierre_acta`, `actas_recepcion`, `acta_checklist`, `acta_estado_historial`
+- [x] 2.2 Backfill: un acta por cada fila de `vehiculos`, preservando el `id` del vehículo como `id` del acta; `cerrada = (estado == VENDIDO)`; `estado_abono = APLICADO_COMISION` si vendida, `NO_DEVENGADO` si no
+- [x] 2.3 Re-apuntar checklist e historial a `acta_id` y eliminar las tablas antiguas
+- [x] 2.4 Eliminar de `vehiculos` las columnas migradas
+- [x] 2.5 Índice único parcial `uq_acta_activa_por_vehiculo ON actas_recepcion(vehiculo_id) WHERE cerrada = false`
+- [x] 2.6 `downgrade` que reconstruye las columnas de `vehiculos` desde el acta activa de cada vehículo
+- [x] 2.7 Verificar la migración contra la base de desarrollo con datos de seed: conteos iguales, ninguna FK huérfana
 
 ## 3. Backend — actas
 
@@ -66,4 +66,4 @@
 - [ ] 6.7 `/abonos/resumen` separa comprometido de ganado y responde `403` a `Sales`
 - [ ] 6.8 El PDF de un acta histórica refleja el cliente y checklist de esa recepción
 - [ ] 6.9 Derivación y comisión cruzada aisladas por acta
-- [ ] 6.10 Migración `upgrade` + `downgrade` sobre la base de seed sin pérdida de datos
+- [x] 6.10 Migración `upgrade` + `downgrade` sobre la base de seed sin pérdida de datos

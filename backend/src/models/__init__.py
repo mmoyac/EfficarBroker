@@ -1,14 +1,20 @@
 """Registro central de modelos para que Alembic descubra todo el metadata."""
 
+from src.models.acta import ActaChecklist, ActaEstadoHistorial, ActaRecepcion
 from src.models.audit import LogAuditoria
 from src.models.catalogs import (
     Ciudad,
+    Color,
     Combustible,
     Comuna,
+    EstadoAbono,
+    EstadoChecklist,
     EstadoVehiculo,
     MenuItem,
     MenuSeccion,
+    MotivoCierreActa,
     Role,
+    TipoChecklistItem,
     TipoComision,
     TipoVehiculo,
     VehiculoMarca,
@@ -21,12 +27,7 @@ from src.models.sucursal import Sucursal
 from src.models.tasacion import TasacionProspecto
 from src.models.tenant import Tenant
 from src.models.user import User
-from src.models.vehiculo import (
-    ChecklistItem,
-    Vehiculo,
-    VehiculoChecklist,
-    VehiculoEstadoHistorial,
-)
+from src.models.vehiculo import ChecklistItem, Vehiculo
 
 __all__ = [
     "Role",
@@ -34,8 +35,13 @@ __all__ = [
     "Comuna",
     "TipoVehiculo",
     "Combustible",
+    "Color",
     "TipoComision",
     "EstadoVehiculo",
+    "EstadoAbono",
+    "MotivoCierreActa",
+    "TipoChecklistItem",
+    "EstadoChecklist",
     "MenuSeccion",
     "MenuItem",
     "VehiculoMarca",
@@ -50,6 +56,7 @@ __all__ = [
     "Cliente",
     "ChecklistItem",
     "Vehiculo",
-    "VehiculoChecklist",
-    "VehiculoEstadoHistorial",
+    "ActaRecepcion",
+    "ActaChecklist",
+    "ActaEstadoHistorial",
 ]
