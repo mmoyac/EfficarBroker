@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:15
+    container_name: efficar_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-efficar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-efficar_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-efficarbroker}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-efficar} -d ${POSTGRES_DB:-efficarbroker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: efficar_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://efficar:efficar_dev@db:5432/efficarbroker}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:

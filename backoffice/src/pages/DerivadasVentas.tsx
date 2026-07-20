@@ -1,0 +1,222 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  downloadDocumentoFirma,
+  listEquipoVentas,
+  listVehiculosDerivados,
+  registrarVenta,
+} from "@/services/vehiculos";
+import type { Vehiculo } from "@/types";
+
+const ESTADO_STYLES: Record<string, string> = {
+  RECEPCIONADO: "bg-blue-100 text-blue-700",
+  CONTRATO_ACEPTADO: "bg-amber-100 text-amber-700",
+  PUBLICADO: "bg-green-100 text-green-700",
+  VENDIDO: "bg-purple-100 text-purple-700",
+};
+
+const VENDIBLE = new Set(["CONTRATO_ACEPTADO", "PUBLICADO"]);
+const DOC_FIRMA = new Set(["CONTRATO_ACEPTADO", "PUBLICADO", "VENDIDO"]);
+
+export default function DerivadasVentas() {
+  const qc = useQueryClient();
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["vehiculos", "derivadas"],
+    queryFn: listVehiculosDerivados,
+  });
+
+  const [ventaFor, setVentaFor] = useState<Vehiculo | null>(null);
+
+  const documentoMut = useMutation({
+    mutationFn: async (v: Vehiculo) => {
+      const blob = await downloadDocumentoFirma(v.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    },
+    onError: (e: unknown) => alert(extractError(e)),
+  });
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-brand-ink">Ventas Derivadas a mi Sucursal</h1>
+        <p className="text-sm text-brand-muted">
+          Vehículos captados en otra sucursal cuya venta se gestiona en la tuya.
+        </p>
+      </div>
+
+      {isLoading && <p className="text-brand-muted">Cargando…</p>}
+      {isError && <p className="text-red-600">No se pudieron cargar las ventas derivadas.</p>}
+
+      {data && data.length === 0 && (
+        <div className="rounded-xl border border-dashed border-brand-surface-2 bg-white p-10 text-center">
+          <p className="text-brand-muted">No hay ventas derivadas a tu sucursal por ahora.</p>
+        </div>
+      )}
+
+      {data && data.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border border-brand-surface-2 bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-brand-surface-2 text-left text-brand-muted">
+                <th className="px-4 py-3 font-medium">PPU</th>
+                <th className="px-4 py-3 font-medium">Vehículo</th>
+                <th className="px-4 py-3 font-medium">Cliente</th>
+                <th className="px-4 py-3 font-medium">Origen → Venta</th>
+                <th className="px-4 py-3 font-medium">Captador</th>
+                <th className="px-4 py-3 font-medium">Precio</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
+                <th className="px-4 py-3 font-medium text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((v) => (
+                <tr key={v.id} className="border-b border-brand-surface-2 last:border-0">
+                  <td className="px-4 py-3 font-mono font-medium text-brand-ink">{v.ppu}</td>
+                  <td className="px-4 py-3">
+                    {v.marca} {v.modelo} <span className="text-brand-muted">{v.anio}</span>
+                  </td>
+                  <td className="px-4 py-3 text-brand-muted">{v.cliente}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {v.sucursal} <span className="text-brand-muted-2">→</span>{" "}
+                    <span className="font-medium text-orange-700">{v.sucursal_venta}</span>
+                  </td>
+                  <td className="px-4 py-3">{v.captador}</td>
+                  <td className="px-4 py-3">
+                    ${(v.precio_venta_final ?? v.precio_venta_pactado).toLocaleString("es-CL")}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${ESTADO_STYLES[v.estado_code] ?? "bg-gray-100 text-gray-600"}`}>
+                      {v.estado}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2 text-xs">
+                      {VENDIBLE.has(v.estado_code) && (
+                        <button
+                          onClick={() => setVentaFor(v)}
+                          className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600"
+                        >
+                          Registrar venta
+                        </button>
+                      )}
+                      {DOC_FIRMA.has(v.estado_code) && (
+                        <button
+                          onClick={() => documentoMut.mutate(v)}
+                          disabled={documentoMut.isPending}
+                          className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
+                        >
+                          PDF firma
+                        </button>
+                      )}
+                      {!VENDIBLE.has(v.estado_code) && !DOC_FIRMA.has(v.estado_code) && (
+                        <span className="text-brand-muted-2">—</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {ventaFor && (
+        <RegistrarVentaModal
+          vehiculo={ventaFor}
+          onClose={() => setVentaFor(null)}
+          onDone={() => {
+            setVentaFor(null);
+            qc.invalidateQueries({ queryKey: ["vehiculos"] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function RegistrarVentaModal({
+  vehiculo, onClose, onDone,
+}: {
+  vehiculo: Vehiculo; onClose: () => void; onDone: () => void;
+}) {
+  const equipoQ = useQuery({ queryKey: ["equipo-ventas"], queryFn: listEquipoVentas });
+  const [vendedorId, setVendedorId] = useState<number | "">("");
+  const [precio, setPrecio] = useState(String(vehiculo.precio_venta_pactado));
+  const [error, setError] = useState<string | null>(null);
+
+  const mut = useMutation({
+    mutationFn: () => registrarVenta(vehiculo.id, Number(vendedorId), Number(precio || 0)),
+    onSuccess: onDone,
+    onError: (e: unknown) => setError(extractError(e)),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-brand-ink">Registrar venta derivada</h2>
+        <p className="mb-4 text-sm text-brand-muted">
+          {vehiculo.ppu} · {vehiculo.marca} {vehiculo.modelo} · venta en {vehiculo.sucursal_venta}
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setError(null);
+            if (vendedorId === "") {
+              setError("Selecciona al vendedor.");
+              return;
+            }
+            mut.mutate();
+          }}
+          className="space-y-3"
+        >
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-brand-ink">Vendedor (de la sucursal de venta)</span>
+            <select
+              value={vendedorId}
+              onChange={(e) => setVendedorId(e.target.value === "" ? "" : Number(e.target.value))}
+              className={inputCls}
+              required
+            >
+              <option value="" disabled>Seleccionar ejecutivo</option>
+              {equipoQ.data?.map((u) => (
+                <option key={u.id} value={u.id}>{u.nombre}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-brand-ink">Precio de venta final (CLP)</span>
+            <input
+              type="number"
+              value={precio}
+              onChange={(e) => setPrecio(e.target.value)}
+              className={inputCls}
+              required
+            />
+          </label>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-lg border border-brand-surface-2 px-4 py-2 text-sm hover:bg-brand-surface">
+              Cancelar
+            </button>
+            <button type="submit" disabled={mut.isPending} className="rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-black hover:bg-brand-accent-600 disabled:opacity-60">
+              {mut.isPending ? "Registrando…" : "Confirmar venta"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full rounded-lg border border-brand-surface-2 px-3 py-2 text-sm outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/40";
+
+function extractError(e: unknown): string {
+  const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  return "No se pudo completar la acción.";
+}

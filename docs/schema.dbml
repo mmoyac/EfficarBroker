@@ -1,0 +1,512 @@
+// =============================================================================
+// EffiCarBroker — Esquema de base de datos
+// =============================================================================
+// Refleja el estado OBJETIVO, es decir el esquema actual más las changes
+// `vehiculo-entidad-fuerte` y `fidelidad-cliente-comision` aplicadas.
+// Las tablas y campos que aún no existen en la base están marcados con [NUEVO].
+//
+// Convenciones del proyecto:
+//   - CATÁLOGO   : vocabulario del dominio, GLOBAL (sin tenant_id). Todo enum
+//                  vive acá; nada se hardcodea en código.
+//   - MAESTRA    : entidades de negocio del tenant (llevan tenant_id).
+//   - OPERACIONAL: hechos y eventos del tenant (llevan tenant_id).
+//
+// Render: https://dbdiagram.io/d  (pegar este archivo)
+// =============================================================================
+
+Project EffiCarBroker {
+  database_type: 'PostgreSQL'
+  Note: 'SaaS multi-tenant de consignación y corretaje automotriz. Aislamiento por fila vía tenant_id.'
+}
+
+// =============================================================================
+// CATÁLOGOS (globales de plataforma — sin tenant_id)
+// =============================================================================
+
+Table roles {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null, note: 'SuperAdmin, TenantAdmin, Management, Sales']
+  nombre varchar(100) [not null]
+  descripcion varchar(255)
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: 'MAESTRA administrable por SuperAdmin, no catálogo fijo.'
+}
+
+Table menu_secciones {
+  id integer [pk, increment]
+  code varchar(80) [unique, not null]
+  label varchar(120) [not null]
+  icon varchar(80)
+  orden integer [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table menu_items {
+  id integer [pk, increment]
+  seccion_id integer [not null]
+  code varchar(80) [unique, not null]
+  label varchar(120) [not null]
+  icon varchar(80)
+  ruta varchar(160) [not null]
+  orden integer [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table rol_menu_item {
+  role_id integer [pk]
+  menu_item_id integer [pk]
+  Note: 'N:M — qué opciones de menú ve cada rol.'
+}
+
+Table ciudades {
+  id integer [pk, increment]
+  nombre varchar(100) [unique, not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table comunas {
+  id integer [pk, increment]
+  nombre varchar(120) [unique, not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table tipos_vehiculo {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null]
+  nombre varchar(80) [not null, note: 'Automóvil, SUV, Camioneta, ...']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table combustibles {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null]
+  nombre varchar(80) [not null, note: 'Bencina, Diésel, Híbrido, Eléctrico']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table colores {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null]
+  nombre varchar(80) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: '[NUEVO] Reemplaza vehiculos.color, hoy texto libre.'
+}
+
+Table tipos_comision {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null]
+  nombre varchar(80) [not null, note: 'Estándar 5% / Gold 3%']
+  tasa "numeric(5,4)" [not null, note: 'Fracción sobre el precio: 0.05 = 5%']
+  minimo integer [not null, default: 0, note: 'Piso en CLP']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: 'Comisión = MAX(precio * tasa, minimo).'
+}
+
+Table estados_vehiculo {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null, note: 'PROSPECTO, RECEPCIONADO, CONTRATO_ACEPTADO, VENDIDO']
+  nombre varchar(100) [not null]
+  orden integer [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: 'Ciclo de vida del ACTA (no del vehículo, que no tiene estado).'
+}
+
+Table estados_abono {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null, note: 'NO_DEVENGADO, APLICADO_COMISION, RETENIDO']
+  nombre varchar(80) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: '[NUEVO] El abono nace NO_DEVENGADO; al vender se APLICA a la comisión; si no hay venta se RETIENE como ingreso por gestión.'
+}
+
+Table motivos_cierre_acta {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null, note: 'DESISTIMIENTO, VENTA_EXTERNA']
+  nombre varchar(80) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: '[NUEVO]'
+}
+
+Table tipos_checklist_item {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null, note: 'DOCUMENTO, ACCESORIO']
+  nombre varchar(80) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: '[NUEVO] Reemplaza checklist_items.tipo, hoy string libre.'
+}
+
+Table estados_checklist {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null, note: 'OK, FALTANTE, OBSERVADO']
+  nombre varchar(80) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: '[NUEVO] Reemplaza vehiculo_checklist.estado, hoy string libre.'
+}
+
+Table origenes_tipo_comision {
+  id integer [pk, increment]
+  code varchar(40) [unique, not null, note: 'TRAMO, OVERRIDE']
+  nombre varchar(80) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: '[NUEVO] Cómo se resolvió la comisión del acta.'
+}
+
+Table checklist_items {
+  id integer [pk, increment]
+  code varchar(60) [unique, not null]
+  nombre varchar(120) [not null]
+  tipo_id integer [not null, note: '[NUEVO] antes era string libre']
+  requiere_vencimiento boolean [not null, default: false]
+  orden integer [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: 'Los 12 puntos de documentos/accesorios del acta.'
+}
+
+// --- Catálogo vehicular jerárquico (administrado por SuperAdmin) ---
+
+Table vehiculo_marcas {
+  id integer [pk, increment]
+  nombre varchar(80) [unique, not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table vehiculo_modelos {
+  id integer [pk, increment]
+  marca_id integer [not null]
+  nombre varchar(100) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table vehiculo_versiones {
+  id integer [pk, increment]
+  modelo_id integer [not null]
+  nombre varchar(100) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+// =============================================================================
+// MAESTRAS
+// =============================================================================
+
+Table tenants {
+  id integer [pk, increment]
+  nombre varchar(150) [not null]
+  dominio varchar(150) [unique, not null]
+  activo boolean [not null, default: true]
+  max_usuarios integer [note: 'NULL = ilimitado (cupo SaaS licenciado)']
+  razon_social varchar(150)
+  rut varchar(20)
+  giro varchar(150)
+  telefono varchar(30)
+  web varchar(150)
+  logo varchar(500)
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: 'Raíz del aislamiento multitenant. No lleva tenant_id.'
+}
+
+Table users {
+  id integer [pk, increment]
+  tenant_id integer [note: 'NULL solo para el SuperAdmin de plataforma']
+  role_id integer [not null]
+  sucursal_id integer
+  nombre varchar(150) [not null]
+  email varchar(150) [not null]
+  telefono varchar(30)
+  rut varchar(20) [note: 'Aparece en "Firma Ejecutivo" de la Orden de Venta']
+  password_hash varchar(255) [not null]
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (tenant_id, email) [unique, name: 'uq_users_tenant_email']
+  }
+}
+
+Table sucursales {
+  id integer [pk, increment]
+  tenant_id integer [not null]
+  nombre varchar(150) [not null]
+  direccion varchar(255)
+  ciudad_id integer [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table clientes {
+  id integer [pk, increment]
+  tenant_id integer [not null]
+  rut varchar(20) [not null]
+  nombre varchar(150) [not null]
+  email varchar(150)
+  telefono varchar(30)
+  domicilio varchar(255)
+  comuna_id integer
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (tenant_id, rut) [unique, name: 'uq_clientes_tenant_rut']
+  }
+  Note: 'ENTIDAD FUERTE. Existe con independencia de los vehículos que consigne. Su historial de actas alimenta los tramos de fidelidad.'
+}
+
+Table vehiculos {
+  id integer [pk, increment]
+  tenant_id integer [not null]
+  ppu varchar(10) [not null]
+  version_id integer [not null, note: '[NUEVO] obligatoria; marca y modelo se derivan de acá']
+  anio integer [not null]
+  n_motor varchar(60)
+  n_chasis varchar(60)
+  color_id integer [note: '[NUEVO] antes texto libre']
+  tipo_vehiculo_id integer
+  combustible_id integer
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  indexes {
+    (tenant_id, ppu) [unique, name: 'uq_vehiculos_tenant_ppu']
+  }
+  Note: '''
+  ENTIDAD FUERTE: solo la identidad física del auto.
+  NO tiene dueño, estado, captador, sucursal, orden de venta ni datos de venta:
+  todo eso es circunstancial y vive en el acta.
+  Admite N actas a lo largo del tiempo (el mismo auto puede corretearse varias veces).
+  [NUEVO] Se eliminaron las columnas de texto marca y modelo: se derivan del catálogo.
+  '''
+}
+
+Table tramos_fidelidad {
+  id integer [pk, increment]
+  tenant_id integer [not null]
+  nombre varchar(80) [not null]
+  min_vehiculos_vendidos integer [not null]
+  max_vehiculos_vendidos integer [note: 'NULL = sin tope superior']
+  tipo_comision_id integer [not null]
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: '''
+  [NUEVO] Administrable por TenantAdmin en /config/fidelidad.
+  Inicial: 0–1 vendidos → Estándar 5%; 2+ → Gold 3% (el beneficio parte al 3er vehículo).
+  Los tramos deben cubrir todo el rango sin solapes ni huecos.
+  '''
+}
+
+// =============================================================================
+// OPERACIONALES
+// =============================================================================
+
+Table actas_recepcion {
+  id integer [pk, increment]
+  tenant_id integer [not null]
+  vehiculo_id integer [not null]
+  cliente_id integer [not null, note: 'Dueño AL MOMENTO de esta recepción']
+  captador_user_id integer [not null]
+  sucursal_id integer [not null, note: 'Sucursal de origen/captación']
+  sucursal_venta_id integer [not null, note: 'Si difiere de sucursal_id, el acta está DERIVADA']
+  estado_id integer [not null]
+  km_ingreso integer [not null, default: 0, note: 'Del acta: varía entre recepciones']
+  fecha_recepcion date [not null]
+
+  // --- Orden de venta ---
+  precio_venta_pactado integer [not null, default: 0]
+  vigencia_dias integer [not null, default: 30]
+  tipo_comision_id integer [not null, note: 'Congelado al firmar; resuelto por tramo de fidelidad']
+  origen_tipo_comision_id integer [not null, note: '[NUEVO] TRAMO u OVERRIDE']
+  vehiculos_vendidos_al_firmar integer [not null, default: 0, note: '[NUEVO] conteo que justificó el tramo']
+  motivo_override varchar(255) [note: '[NUEVO] obligatorio si el origen es OVERRIDE']
+
+  // --- Abono de exclusividad ---
+  exclusividad_abono integer [not null, default: 40000]
+  estado_abono_id integer [not null]
+  fecha_cobro_abono date
+  fecha_resolucion_abono date
+
+  // --- Venta ---
+  vendedor_user_id integer
+  precio_venta_final integer
+  fecha_venta date
+
+  // --- Cierre ---
+  cerrada boolean [not null, default: false]
+  motivo_cierre_id integer
+  fecha_cierre date
+
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  indexes {
+    vehiculo_id [name: 'ix_actas_vehiculo']
+    cliente_id [name: 'ix_actas_cliente']
+    (tenant_id, cerrada) [name: 'ix_actas_tenant_abiertas']
+  }
+  Note: '''
+  [NUEVO] La UNIÓN entre cliente y vehículo en un momento dado.
+  Todo lo circunstancial de una consignación vive acá.
+
+  INVARIANTE (índice único parcial, en la base y no solo en la app):
+    CREATE UNIQUE INDEX uq_acta_activa_por_vehiculo
+      ON actas_recepcion (vehiculo_id) WHERE cerrada = false;
+
+  `cerrada` es columna y no una consulta sobre estados_vehiculo porque
+  PostgreSQL exige un predicado inmutable en un índice parcial.
+
+  El tipo de comisión se CONGELA al crear el acta: es cláusula del contrato
+  que el cliente firma y que se imprime en el PDF. No se recalcula nunca.
+  '''
+}
+
+Table acta_checklist {
+  id integer [pk, increment]
+  acta_id integer [not null]
+  checklist_item_id integer [not null]
+  presente boolean [not null, default: false]
+  estado_checklist_id integer [note: '[NUEVO] antes string libre']
+  fecha_vencimiento date
+  observacion varchar(255)
+  Note: '[NUEVO] Cuelga del ACTA, no del vehículo: cada recepción tiene su propio checklist.'
+}
+
+Table acta_estado_historial {
+  id integer [pk, increment]
+  tenant_id integer [not null]
+  acta_id integer [not null]
+  estado_id integer [not null]
+  user_id integer
+  timestamp timestamptz [not null]
+  Note: '''
+  [NUEVO] Cuelga del ACTA. Fuente de los KPIs temporales del CEO:
+  duración en cada estado y tiempo punta a punta captación→venta.
+  Sin esta separación, dos recepciones del mismo auto mezclarían sus
+  líneas de tiempo y los KPIs quedarían inservibles.
+  '''
+}
+
+Table tasacion_prospectos {
+  id integer [pk, increment]
+  tenant_id integer [not null]
+  estado_id integer [not null]
+  captador_user_id integer [not null]
+  version_id integer
+  ppu varchar(10) [not null]
+  km integer [not null, default: 0]
+  precio_mercado integer [not null]
+  precio_retoma integer [not null]
+  precio_publicacion_sugerido integer [not null]
+  fuente varchar(50) [not null]
+  observacion varchar(255)
+  scrape_url varchar(255)
+  sample_size integer [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  Note: 'Tasación previa al acta (M1). No genera vehículo ni acta.'
+}
+
+Table logs_auditoria {
+  id integer [pk, increment]
+  tenant_id integer [note: 'NULL para eventos de plataforma (SuperAdmin)']
+  user_id integer
+  timestamp timestamptz [not null]
+  ip varchar(64)
+  entidad varchar(80)
+  entidad_id integer
+  estado_anterior varchar(80) [note: 'Snapshot de texto inmutable, a propósito']
+  estado_nuevo varchar(80)
+  payload jsonb
+  Note: '''
+  APPEND-ONLY. Un trigger de PostgreSQL rechaza UPDATE y DELETE.
+  estado_anterior/nuevo se guardan como texto y no como FK: es un snapshot
+  histórico que debe sobrevivir a cambios en el catálogo de estados.
+  '''
+}
+
+// =============================================================================
+// RELACIONES
+// =============================================================================
+
+// --- Menú y roles ---
+Ref: menu_items.seccion_id > menu_secciones.id [delete: cascade]
+Ref: rol_menu_item.role_id > roles.id [delete: cascade]
+Ref: rol_menu_item.menu_item_id > menu_items.id [delete: cascade]
+
+// --- Identidad y organización ---
+Ref: users.tenant_id > tenants.id [delete: restrict]
+Ref: users.role_id > roles.id [delete: restrict]
+Ref: users.sucursal_id > sucursales.id [delete: set null]
+Ref: sucursales.tenant_id > tenants.id [delete: restrict]
+Ref: sucursales.ciudad_id > ciudades.id [delete: restrict]
+
+// --- Catálogo vehicular ---
+Ref: vehiculo_modelos.marca_id > vehiculo_marcas.id [delete: cascade]
+Ref: vehiculo_versiones.modelo_id > vehiculo_modelos.id [delete: cascade]
+
+// --- Clientes ---
+Ref: clientes.tenant_id > tenants.id [delete: restrict]
+Ref: clientes.comuna_id > comunas.id [delete: restrict]
+
+// --- Vehículos (entidad fuerte) ---
+Ref: vehiculos.tenant_id > tenants.id [delete: restrict]
+Ref: vehiculos.version_id > vehiculo_versiones.id [delete: restrict]
+Ref: vehiculos.color_id > colores.id [delete: restrict]
+Ref: vehiculos.tipo_vehiculo_id > tipos_vehiculo.id [delete: restrict]
+Ref: vehiculos.combustible_id > combustibles.id [delete: restrict]
+
+// --- Actas: la unión cliente ←→ vehículo ---
+Ref: actas_recepcion.tenant_id > tenants.id [delete: restrict]
+Ref: actas_recepcion.vehiculo_id > vehiculos.id [delete: restrict]
+Ref: actas_recepcion.cliente_id > clientes.id [delete: restrict]
+Ref: actas_recepcion.captador_user_id > users.id [delete: restrict]
+Ref: actas_recepcion.vendedor_user_id > users.id [delete: set null]
+Ref: actas_recepcion.sucursal_id > sucursales.id [delete: restrict]
+Ref: actas_recepcion.sucursal_venta_id > sucursales.id [delete: restrict]
+Ref: actas_recepcion.estado_id > estados_vehiculo.id [delete: restrict]
+Ref: actas_recepcion.tipo_comision_id > tipos_comision.id [delete: restrict]
+Ref: actas_recepcion.origen_tipo_comision_id > origenes_tipo_comision.id [delete: restrict]
+Ref: actas_recepcion.estado_abono_id > estados_abono.id [delete: restrict]
+Ref: actas_recepcion.motivo_cierre_id > motivos_cierre_acta.id [delete: restrict]
+
+// --- Checklist e historial (del acta) ---
+Ref: checklist_items.tipo_id > tipos_checklist_item.id [delete: restrict]
+Ref: acta_checklist.acta_id > actas_recepcion.id [delete: cascade]
+Ref: acta_checklist.checklist_item_id > checklist_items.id [delete: restrict]
+Ref: acta_checklist.estado_checklist_id > estados_checklist.id [delete: restrict]
+Ref: acta_estado_historial.tenant_id > tenants.id [delete: restrict]
+Ref: acta_estado_historial.acta_id > actas_recepcion.id [delete: cascade]
+Ref: acta_estado_historial.estado_id > estados_vehiculo.id [delete: restrict]
+Ref: acta_estado_historial.user_id > users.id [delete: set null]
+
+// --- Fidelidad ---
+Ref: tramos_fidelidad.tenant_id > tenants.id [delete: restrict]
+Ref: tramos_fidelidad.tipo_comision_id > tipos_comision.id [delete: restrict]
+
+// --- Tasación ---
+Ref: tasacion_prospectos.tenant_id > tenants.id [delete: restrict]
+Ref: tasacion_prospectos.estado_id > estados_vehiculo.id [delete: restrict]
+Ref: tasacion_prospectos.captador_user_id > users.id [delete: restrict]
+Ref: tasacion_prospectos.version_id > vehiculo_versiones.id [delete: restrict]
+
+// --- Auditoría ---
+Ref: logs_auditoria.tenant_id > tenants.id [delete: restrict]
+Ref: logs_auditoria.user_id > users.id [delete: set null]

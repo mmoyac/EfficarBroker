@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@dbml/core": "^8.3.1-custom-metadata.3"
+  }
+}

@@ -1,0 +1,60 @@
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import TenantGate from "@/components/TenantGate";
+import Layout from "@/components/Layout";
+import Login from "@/pages/Login";
+import PlatformView from "@/pages/PlatformView";
+import Dashboard from "@/pages/Dashboard";
+import Users from "@/pages/Users";
+import NuevaActa from "@/pages/NuevaActa";
+import MisCaptaciones from "@/pages/MisCaptaciones";
+import DerivadasVentas from "@/pages/DerivadasVentas";
+import Tasacion from "@/pages/Tasacion";
+import CatalogoVehicular from "@/pages/CatalogoVehicular";
+import Placeholder from "@/pages/Placeholder";
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          {/* Vista de plataforma para SuperAdmin (elegir tenant activo) */}
+          <Route
+            path="/plataforma"
+            element={
+              <ProtectedRoute>
+                <PlatformView />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Área operativa: requiere sesión y, para SuperAdmin, un tenant activo */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <TenantGate>
+                  <Layout />
+                </TenantGate>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="tasacion" element={<Tasacion />} />
+            <Route path="catalogo" element={<CatalogoVehicular />} />
+            <Route path="saas/catalogo-vehicular" element={<CatalogoVehicular />} />
+            <Route path="config/usuarios" element={<Users />} />
+            <Route path="actas/nueva" element={<NuevaActa />} />
+            <Route path="captaciones" element={<MisCaptaciones />} />
+            <Route path="captaciones/derivadas" element={<DerivadasVentas />} />
+            {/* Rutas del menú aún sin página: placeholder hasta implementar cada módulo */}
+            <Route path="*" element={<Placeholder />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
