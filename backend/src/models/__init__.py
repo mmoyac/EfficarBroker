@@ -9,6 +9,7 @@ from src.models.catalogs import (
     Comuna,
     EstadoAbono,
     EstadoChecklist,
+    EstadoPagoComision,
     EstadoVehiculo,
     MenuItem,
     MenuSeccion,
@@ -16,12 +17,14 @@ from src.models.catalogs import (
     Role,
     TipoChecklistItem,
     TipoComision,
+    TipoComisionEjecutivo,
     TipoVehiculo,
     VehiculoMarca,
     VehiculoModelo,
     VehiculoVersion,
     rol_menu_item,
 )
+from src.models.comision import ComisionEjecutivo, OrdenPago, ParametrosComision
 from src.models.cliente import Cliente
 from src.models.sucursal import Sucursal
 from src.models.tasacion import TasacionProspecto
@@ -59,4 +62,9 @@ __all__ = [
     "ActaRecepcion",
     "ActaChecklist",
     "ActaEstadoHistorial",
+    "TipoComisionEjecutivo",
+    "EstadoPagoComision",
+    "ParametrosComision",
+    "ComisionEjecutivo",
+    "OrdenPago",
 ]

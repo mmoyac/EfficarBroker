@@ -23,12 +23,16 @@ from src.models.catalogs import (
     Comuna,
     EstadoAbono,
     EstadoChecklist,
+    EstadoPagoComision,
     EstadoVehiculo,
     MotivoCierreActa,
     TipoComision,
+    TipoComisionEjecutivo,
     TipoVehiculo,
     VehiculoVersion,
 )
+from src.models.comision import ComisionEjecutivo, ParametrosComision
+from src.services.comision_ejecutivo import calcular_reparto
 from src.models.cliente import Cliente
 from src.models.sucursal import Sucursal
 from src.models.tenant import Tenant
@@ -206,6 +210,38 @@ def _registrar_historial(db: Session, acta: ActaRecepcion, user_id: int) -> None
     db.add(ActaEstadoHistorial(
         tenant_id=acta.tenant_id, acta_id=acta.id,
         estado_id=acta.estado_id, user_id=user_id,
+    ))
+
+
+def _generar_comisiones(db: Session, acta: ActaRecepcion) -> None:
+    """Al vender, genera la comisión de captación (captador) y de venta (vendedor).
+
+    Monto y porcentajes se congelan. En venta propia el mismo ejecutivo recibe
+    ambas. Si falta el tipo de comisión no hay base de cálculo y no se genera nada.
+    """
+    if acta.tipo_comision is None or not acta.precio_venta_final:
+        return
+    params = db.scalar(
+        select(ParametrosComision).where(ParametrosComision.tenant_id == acta.tenant_id)
+    )
+    if params is None:
+        # Default seguro si el tenant no tiene parámetros (no debería ocurrir).
+        params = ParametrosComision(tenant_id=acta.tenant_id, pool_pct=20, captacion_pct=40, venta_pct=60)
+    reparto = calcular_reparto(acta.precio_venta_final, acta.tipo_comision, params)
+
+    pendiente = db.scalar(select(EstadoPagoComision).where(EstadoPagoComision.code == "PENDIENTE"))
+    tipo_capt = db.scalar(select(TipoComisionEjecutivo).where(TipoComisionEjecutivo.code == "CAPTACION"))
+    tipo_venta = db.scalar(select(TipoComisionEjecutivo).where(TipoComisionEjecutivo.code == "VENTA"))
+
+    db.add(ComisionEjecutivo(
+        tenant_id=acta.tenant_id, acta_id=acta.id, beneficiario_user_id=acta.captador_user_id,
+        tipo_id=tipo_capt.id, monto=reparto.monto_captacion, estado_pago_id=pendiente.id,
+        pool_pct=reparto.pool_pct, porcentaje_aplicado=reparto.captacion_pct,
+    ))
+    db.add(ComisionEjecutivo(
+        tenant_id=acta.tenant_id, acta_id=acta.id, beneficiario_user_id=acta.vendedor_user_id,
+        tipo_id=tipo_venta.id, monto=reparto.monto_venta, estado_pago_id=pendiente.id,
+        pool_pct=reparto.pool_pct, porcentaje_aplicado=reparto.venta_pct,
     ))
 
 
@@ -547,6 +583,8 @@ def registrar_venta(
         a.fecha_resolucion_abono = date.today()
 
     db.flush()
+    # Generar las comisiones del ejecutivo (captación al captador, venta al vendedor).
+    _generar_comisiones(db, a)
     _registrar_historial(db, a, current.id)
     audit_service.log(
         db, tenant_id=tenant_id, user_id=current.id,

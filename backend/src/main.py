@@ -7,6 +7,7 @@ from src.routers import (
     actas,
     auth,
     catalogs,
+    comisiones,
     health,
     navigation,
     tasacion,
@@ -34,6 +35,7 @@ app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(vehiculos.router, prefix=settings.API_V1_PREFIX)
 app.include_router(actas.router, prefix=settings.API_V1_PREFIX)
 app.include_router(abonos.router, prefix=settings.API_V1_PREFIX)
+app.include_router(comisiones.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasacion.router, prefix=settings.API_V1_PREFIX)
 
 

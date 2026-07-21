@@ -20,6 +20,7 @@ from src.models.catalogs import (
     Comuna,
     EstadoAbono,
     EstadoChecklist,
+    EstadoPagoComision,
     EstadoVehiculo,
     MenuItem,
     MenuSeccion,
@@ -27,11 +28,13 @@ from src.models.catalogs import (
     Role,
     TipoChecklistItem,
     TipoComision,
+    TipoComisionEjecutivo,
     TipoVehiculo,
     VehiculoMarca,
     VehiculoModelo,
     VehiculoVersion,
 )
+from src.models.comision import ParametrosComision
 from src.models.cliente import Cliente
 from src.models.sucursal import Sucursal
 from src.models.tenant import Tenant
@@ -333,6 +336,11 @@ def seed() -> None:
             estados_abono[code] = ea
         for code, nombre in MOTIVOS_CIERRE_ACTA:
             _get_or_create(db, MotivoCierreActa, defaults={"nombre": nombre}, code=code)
+        # Comisión del ejecutivo: catálogos de tipo y estado de pago.
+        for code, nombre in [("CAPTACION", "Captación"), ("VENTA", "Venta")]:
+            _get_or_create(db, TipoComisionEjecutivo, defaults={"nombre": nombre}, code=code)
+        for code, nombre in [("PENDIENTE", "Pendiente"), ("PAGADA", "Pagada")]:
+            _get_or_create(db, EstadoPagoComision, defaults={"nombre": nombre}, code=code)
         colores: dict[str, Color] = {}
         for code, nombre in COLORES:
             col, _ = _get_or_create(db, Color, defaults={"nombre": nombre}, code=code)
@@ -396,6 +404,11 @@ def seed() -> None:
         tenant, _ = _get_or_create(
             db, Tenant, defaults={"nombre": TENANT_NOMBRE, "activo": True}, dominio=TENANT_DOMINIO
         )
+        db.flush()
+        # Parámetros de comisión del ejecutivo (default; el TenantAdmin los ajusta).
+        _get_or_create(db, ParametrosComision,
+                       defaults={"pool_pct": 20, "captacion_pct": 40, "venta_pct": 60},
+                       tenant_id=tenant.id)
         tenant.razon_social = TENANT_CORP["razon_social"]
         tenant.rut = TENANT_CORP["rut"]
         tenant.giro = TENANT_CORP["giro"]
@@ -531,6 +544,10 @@ def seed() -> None:
             db, Tenant, defaults={"nombre": DEMO_TENANT_NOMBRE, "activo": True},
             dominio=DEMO_TENANT_DOMINIO,
         )
+        db.flush()
+        _get_or_create(db, ParametrosComision,
+                       defaults={"pool_pct": 20, "captacion_pct": 40, "venta_pct": 60},
+                       tenant_id=demo_tenant.id)
         d_nombre, d_dir, d_ciudad = DEMO_SUCURSAL
         demo_suc, _ = _get_or_create(
             db, Sucursal,

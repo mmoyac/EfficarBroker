@@ -97,6 +97,26 @@ class EstadoChecklist(TimestampMixin, Base):
     nombre: Mapped[str] = mapped_column(String(80), nullable=False)
 
 
+class TipoComisionEjecutivo(TimestampMixin, Base):
+    """Catálogo del tipo de comisión que gana el ejecutivo: captación o venta."""
+
+    __tablename__ = "tipos_comision_ejecutivo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)  # CAPTACION, VENTA
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
+class EstadoPagoComision(TimestampMixin, Base):
+    """Catálogo del estado de pago de una comisión de ejecutivo."""
+
+    __tablename__ = "estados_pago_comision"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)  # PENDIENTE, PAGADA
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
 class TipoComision(TimestampMixin, Base):
     """Catálogo de tipo de comisión de corretaje (Estándar 5% / Gold 3%).
 
