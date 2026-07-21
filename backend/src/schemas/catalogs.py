@@ -1,6 +1,16 @@
 from pydantic import BaseModel, ConfigDict
 
 
+class CodeNombreOut(BaseModel):
+    """Catálogo simple (id + code + nombre): colores, estados de abono, etc."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    nombre: str
+
+
 class RoleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

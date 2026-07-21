@@ -9,7 +9,7 @@ class ChecklistItemOut(BaseModel):
     id: int
     code: str
     nombre: str
-    tipo: str
+    tipo_id: int
     requiere_vencimiento: bool
     orden: int
 
@@ -60,28 +60,24 @@ class ActaCreate(BaseModel):
 
 
 class VehiculoUpdateIn(BaseModel):
+    """Corrección de la ficha física del auto (mantenedor).
+
+    Los datos circunstanciales (dueño, orden de venta, sucursales) NO se editan
+    aquí: pertenecen al acta. `motivo` es obligatorio cuando el auto ya tiene
+    actas firmadas, porque el cambio afecta documentos ya emitidos.
+    """
+
     model_config = ConfigDict(strict=True)
 
-    version_id: int | None = None
-    sucursal_id: int | None = None
-    sucursal_venta_id: int | None = None
     ppu: str | None = Field(default=None, min_length=4, max_length=10)
+    version_id: int | None = None
     anio: int | None = Field(default=None, ge=1900, le=2100)
     n_motor: str | None = Field(default=None, max_length=60)
     n_chasis: str | None = Field(default=None, max_length=60)
-    km_ingreso: int | None = Field(default=None, ge=0)
-    color: str | None = Field(default=None, max_length=40)
+    color_id: int | None = None
     tipo_vehiculo_id: int | None = None
     combustible_id: int | None = None
-    tipo_comision_id: int | None = None
-    precio_venta_pactado: int | None = Field(default=None, ge=0)
-    vigencia_dias: int | None = Field(default=None, ge=1)
-    exclusividad_abono: int | None = Field(default=None, ge=0)
-    cliente_nombre: str | None = Field(default=None, min_length=1, max_length=150)
-    cliente_email: EmailStr | None = None
-    cliente_telefono: str | None = Field(default=None, max_length=30)
-    cliente_domicilio: str | None = Field(default=None, max_length=255)
-    cliente_comuna_id: int | None = None
+    motivo: str | None = Field(default=None, max_length=255)
 
 
 class ClienteOut(BaseModel):

@@ -19,28 +19,28 @@
 
 ## 3. Backend — actas
 
-- [ ] 3.1 Schemas `ActaCreate`, `ActaOut`, `ActaDetailOut`, `VehiculoFichaOut` en `src/schemas/`
-- [ ] 3.2 `POST /api/v1/actas`: get-or-create de cliente por RUT y de vehículo por PPU; `409` si el vehículo ya tiene acta activa; crea acta en `RECEPCIONADO` con checklist, orden de venta y abono en `NO_DEVENGADO`; auditoría
-- [ ] 3.3 `GET /api/v1/actas` con `?mine=true` y `?derivadas=true`; `GET /api/v1/actas/{id}` (detalle con checklist, cliente, vehículo y estado de abono)
-- [ ] 3.4 `POST /api/v1/actas/{id}/aceptar-terminos` (`RECEPCIONADO` → `CONTRATO_ACEPTADO`, `409` si no)
-- [ ] 3.5 `GET /api/v1/actas/{id}/documento-firma` desde `CONTRATO_ACEPTADO`
-- [ ] 3.6 `POST /api/v1/actas/{id}/registrar-venta`: valida vendedor por sucursal de venta, cierra el acta y transita el abono a `APLICADO_COMISION`
-- [ ] 3.7 `POST /api/v1/actas/{id}/cerrar-sin-venta`: motivo obligatorio, cierra el acta y transita el abono a `RETENIDO`; `409` si ya está cerrada
-- [ ] 3.8 Retirar de `/api/v1/vehiculos` los endpoints operativos, dejando la consulta de fichas
+- [x] 3.1 Schemas `ActaCreate`, `ActaOut`, `ActaDetailOut`, `VehiculoFichaOut` en `src/schemas/`
+- [x] 3.2 `POST /api/v1/actas`: get-or-create de cliente por RUT y de vehículo por PPU; `409` si el vehículo ya tiene acta activa; crea acta en `RECEPCIONADO` con checklist, orden de venta y abono en `NO_DEVENGADO`; auditoría
+- [x] 3.3 `GET /api/v1/actas` con `?mine=true` y `?derivadas=true`; `GET /api/v1/actas/{id}` (detalle con checklist, cliente, vehículo y estado de abono)
+- [x] 3.4 `POST /api/v1/actas/{id}/aceptar-terminos` (`RECEPCIONADO` → `CONTRATO_ACEPTADO`, `409` si no)
+- [x] 3.5 `GET /api/v1/actas/{id}/documento-firma` desde `CONTRATO_ACEPTADO`
+- [x] 3.6 `POST /api/v1/actas/{id}/registrar-venta`: valida vendedor por sucursal de venta, cierra el acta y transita el abono a `APLICADO_COMISION`
+- [x] 3.7 `POST /api/v1/actas/{id}/cerrar-sin-venta`: motivo obligatorio, cierra el acta y transita el abono a `RETENIDO`; `409` si ya está cerrada
+- [x] 3.8 Retirar de `/api/v1/vehiculos` los endpoints operativos, dejando la consulta de fichas
 
 ## 4. Backend — vehículos y abonos
 
-- [ ] 4.1 `GET /api/v1/vehiculos/{id}/actas`: historial de recepciones ordenado desc
-- [ ] 4.2 `GET /api/v1/vehiculos/lookup?ppu=`: ficha del vehículo en el tenant e indicador de si tiene acta activa, para precargar el formulario
-- [ ] 4.3 Mantener `GET /api/v1/vehiculos/lookup/vehiculo-global` leyendo el estado desde el acta más reciente
-- [ ] 4.4 `GET /api/v1/estados-abono` (catálogo)
-- [ ] 4.5 `GET /api/v1/abonos/resumen`: totales y conteos por estado de abono, filtrable por rango de fechas y sucursal, restringido a `Management`/`TenantAdmin`/`SuperAdmin`
-- [ ] 4.6 `src/services/acta_pdf.py` recibe el acta y navega a `acta.vehiculo`; el saldo de comisión al cierre descuenta el abono
-- [ ] 4.7 `src/seed.py`: generar vehículo + acta; agregar un vehículo con dos actas (una cerrada, una activa) para cubrir el caso de reingreso
-- [ ] 4.8 `PATCH /api/v1/vehiculos/{id}`: captador puede corregir mientras no haya actas firmadas ni cerradas; con historial documental solo `Management`/`TenantAdmin`/`SuperAdmin` con motivo obligatorio y auditoría; PPU solo esos roles
-- [ ] 4.9 `DELETE /api/v1/vehiculos/{id}`: `409` si el vehículo tiene alguna acta
-- [ ] 4.10 Registrar `/actas` en el menú (`menu_items`) como entrada del módulo, sobre `/actas/nueva`
-- [ ] 4.11 Entrada de menú "Vehículos" (`/vehiculos`) en el grupo de Validaciones y Catálogo, para `Management`
+- [x] 4.1 `GET /api/v1/vehiculos/{id}/actas`: historial de recepciones ordenado desc
+- [x] 4.2 `GET /api/v1/vehiculos/lookup?ppu=`: ficha del vehículo en el tenant e indicador de si tiene acta activa, para precargar el formulario
+- [x] 4.3 Mantener `GET /api/v1/vehiculos/lookup/vehiculo-global` leyendo el estado desde el acta más reciente
+- [x] 4.4 `GET /api/v1/estados-abono` (catálogo)
+- [x] 4.5 `GET /api/v1/abonos/resumen`: totales y conteos por estado de abono, filtrable por rango de fechas y sucursal, restringido a `Management`/`TenantAdmin`/`SuperAdmin`
+- [x] 4.6 `src/services/acta_pdf.py` recibe el acta y navega a `acta.vehiculo`; el saldo de comisión al cierre descuenta el abono
+- [x] 4.7 `src/seed.py`: generar vehículo + acta; agregar un vehículo con dos actas (una cerrada, una activa) para cubrir el caso de reingreso
+- [x] 4.8 `PATCH /api/v1/vehiculos/{id}`: captador puede corregir mientras no haya actas firmadas ni cerradas; con historial documental solo `Management`/`TenantAdmin`/`SuperAdmin` con motivo obligatorio y auditoría; PPU solo esos roles
+- [x] 4.9 `DELETE /api/v1/vehiculos/{id}`: `409` si el vehículo tiene alguna acta
+- [x] 4.10 Registrar `/actas` en el menú (`menu_items`) como entrada del módulo, sobre `/actas/nueva`
+- [x] 4.11 Entrada de menú "Vehículos" (`/vehiculos`) en el grupo de Validaciones y Catálogo, para `Management`
 
 ## 5. Backoffice
 

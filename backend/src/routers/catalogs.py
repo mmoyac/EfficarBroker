@@ -6,8 +6,12 @@ from src.database import get_db
 from src.dependencies import SUPERADMIN, get_current_user, get_effective_tenant_id, require_roles
 from src.models.catalogs import Role
 from src.models.catalogs import (
+    Color,
     Combustible,
     Comuna,
+    EstadoAbono,
+    EstadoChecklist,
+    MotivoCierreActa,
     TipoComision,
     TipoVehiculo,
     VehiculoMarca,
@@ -31,9 +35,42 @@ from src.schemas.catalogs import (
     VehiculoVersionIn,
     VehiculoVersionOut,
 )
+from src.schemas.catalogs import CodeNombreOut
 from src.schemas.vehiculo import ChecklistItemOut, EquipoVentaOut
 
 router = APIRouter(tags=["catalogs"])
+
+
+@router.get("/colores", response_model=list[CodeNombreOut])
+def list_colores(
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+) -> list[Color]:
+    return list(db.scalars(select(Color).order_by(Color.nombre)).all())
+
+
+@router.get("/estados-abono", response_model=list[CodeNombreOut])
+def list_estados_abono(
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+) -> list[EstadoAbono]:
+    return list(db.scalars(select(EstadoAbono).order_by(EstadoAbono.id)).all())
+
+
+@router.get("/estados-checklist", response_model=list[CodeNombreOut])
+def list_estados_checklist(
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+) -> list[EstadoChecklist]:
+    return list(db.scalars(select(EstadoChecklist).order_by(EstadoChecklist.id)).all())
+
+
+@router.get("/motivos-cierre-acta", response_model=list[CodeNombreOut])
+def list_motivos_cierre(
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+) -> list[MotivoCierreActa]:
+    return list(db.scalars(select(MotivoCierreActa).order_by(MotivoCierreActa.id)).all())
 
 
 @router.get("/checklist-items", response_model=list[ChecklistItemOut])

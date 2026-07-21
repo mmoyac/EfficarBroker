@@ -18,9 +18,10 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from src.models.acta import ActaRecepcion
 from src.models.tenant import Tenant
 from src.models.vehiculo import Vehiculo
-from src.utils.comision import calcular_comision, calcular_liquidacion
+from src.utils.comision import calcular_comision, calcular_comision_neta, calcular_liquidacion
 
 BRAND_YELLOW = HexColor("#FFD701")
 SECTION_BG = HexColor("#5f6b7a")
@@ -54,14 +55,18 @@ def _decode_logo(logo: str | None) -> ImageReader | None:
 
 
 class _Doc:
-    def __init__(self, v: Vehiculo, tenant: Tenant | None):
-        self.v = v
+    def __init__(self, acta: ActaRecepcion, tenant: Tenant | None):
+        # El documento se arma desde el ACTA: refleja el cliente, el checklist
+        # y la orden de venta de ESA recepción. `v` es la ficha física del auto,
+        # compartida por todas las recepciones del mismo vehículo.
+        self.a = acta
+        self.v = acta.vehiculo
         self.t = tenant
         self.buffer = BytesIO()
         self.c = canvas.Canvas(self.buffer, pagesize=A4)
         self.w, self.h = A4
         self.y = self.h
-        self.c.setTitle(f"acta-orden-{v.ppu}.pdf")
+        self.c.setTitle(f"acta-orden-{self.v.ppu}-{acta.id}.pdf")
 
     # --- primitives ---
     def text(self, x: float, s: str, size: int = 9, bold: bool = False, color: Color = black) -> None:
@@ -121,7 +126,7 @@ class _Doc:
         giro = self.t.giro if self.t else None
         tel = self.t.telefono if self.t else None
         web = self.t.web if self.t else None
-        direccion = self.v.sucursal.direccion if self.v.sucursal else None
+        direccion = self.a.sucursal.direccion if self.a.sucursal else None
         self.c.setFillColor(black)
         self.c.setFont("Helvetica", 6.5)
         info = [
@@ -160,22 +165,34 @@ class _Doc:
             self.c.drawCentredString(cx, self.y - 22, sub)
 
 
+def _bloque_vehiculo(d: _Doc, v: Vehiculo, a: ActaRecepcion) -> None:
+    """Datos del auto. El kilometraje sale del ACTA: varía entre recepciones."""
+    km = f"{a.km_ingreso:,}".replace(",", ".")
+    d.two_col(
+        "Tipo de vehículo", v.tipo_vehiculo.nombre if v.tipo_vehiculo else "-",
+        "Color", v.color.nombre if v.color else "-",
+    )
+    d.two_col("Marca", v.marca_nombre, "Año", str(v.anio))
+    d.two_col("Modelo", f"{v.modelo_nombre} {v.version.nombre}".strip(), "Kilometraje", km)
+    d.two_col("N° Motor", v.n_motor or "-", "Patente", v.ppu)
+    d.two_col(
+        "N° Chasis", v.n_chasis or "-",
+        "Combustible", v.combustible.nombre if v.combustible else "-",
+    )
+
+
 def _page_acta(d: _Doc) -> None:
-    v = d.v
+    v, a = d.v, d.a
     d.header("ACTA DE RECEPCIÓN DIGITAL")
 
     d.section("ANTECEDENTES DEL CLIENTE")
-    c = v.cliente
+    c = a.cliente
     d.two_col("RUT", c.rut, "Fono", c.telefono or "-")
     d.two_col("Nombre", c.nombre, "Email", c.email or "-")
     d.two_col("Domicilio", c.domicilio or "-", "Comuna", c.comuna.nombre if c.comuna else "-")
 
     d.section("ANTECEDENTES DEL VEHÍCULO")
-    d.two_col("Tipo de vehículo", v.tipo_vehiculo.nombre if v.tipo_vehiculo else "-", "Color", v.color or "-")
-    d.two_col("Marca", v.marca, "Año", str(v.anio))
-    d.two_col("Modelo", f"{v.modelo} {v.version.nombre if v.version else ''}".strip(), "Kilometraje", f"{v.km_ingreso:,}".replace(",", "."))
-    d.two_col("N° Motor", v.n_motor or "-", "Patente", v.ppu)
-    d.two_col("N° Chasis", v.n_chasis or "-", "Combustible", v.combustible.nombre if v.combustible else "-")
+    _bloque_vehiculo(d, v, a)
 
     d.section("DOCUMENTOS Y ACCESORIOS DEL VEHÍCULO")
     # cabecera de tabla
@@ -187,8 +204,8 @@ def _page_acta(d: _Doc) -> None:
     d.c.drawString(d.w - 165, d.y, "Fecha Recep.")
     d.c.drawString(d.w - 95, d.y, "Observaciones")
     d.y -= 12
-    fecha_recep = v.fecha_recepcion.strftime("%d-%m-%y")
-    for idx, item in enumerate(sorted(v.checklist, key=lambda ci: ci.item.orden), start=1):
+    fecha_recep = a.fecha_recepcion.strftime("%d-%m-%y")
+    for idx, item in enumerate(sorted(a.checklist, key=lambda ci: ci.item.orden), start=1):
         d.c.setFont("Helvetica", 7)
         d.c.drawString(MARGIN + 6, d.y, f"{idx:>2}. {item.item.nombre}")
         d.c.drawString(d.w - 218, d.y, "X" if item.presente else "")
@@ -206,9 +223,9 @@ def _page_acta(d: _Doc) -> None:
     d.y -= 6
 
     d.firmas([
-        ("RECEPCIÓN A CARGO DE", v.captador.nombre),
-        ("FIRMA CLIENTE", v.cliente.nombre),
-        ("HUELLA", v.cliente.rut),
+        ("RECEPCIÓN A CARGO DE", a.captador.nombre),
+        ("FIRMA CLIENTE", a.cliente.nombre),
+        ("HUELLA", a.cliente.rut),
     ])
     d.c.showPage()
 
@@ -250,7 +267,7 @@ def _wrap(c: canvas.Canvas, text: str, x: float, y: float, max_w: float, size: i
 
 
 def _page_orden(d: _Doc) -> None:
-    v = d.v
+    v, a = d.v, d.a
     d.header("ORDEN DE VENTA")
 
     d.y -= 6
@@ -263,18 +280,20 @@ def _page_orden(d: _Doc) -> None:
     d.y -= 24
 
     d.section("ANTECEDENTES DEL VEHÍCULO")
-    d.two_col("Tipo de vehículo", v.tipo_vehiculo.nombre if v.tipo_vehiculo else "-", "Color", v.color or "-")
-    d.two_col("Marca", v.marca, "Año", str(v.anio))
-    d.two_col("Modelo", f"{v.modelo} {v.version.nombre if v.version else ''}".strip(), "Kilometraje", f"{v.km_ingreso:,}".replace(",", "."))
-    d.two_col("N° Motor", v.n_motor or "-", "Patente", v.ppu)
-    d.two_col("N° Chasis", v.n_chasis or "-", "Combustible", v.combustible.nombre if v.combustible else "-")
+    _bloque_vehiculo(d, v, a)
 
-    comision = calcular_comision(v.precio_venta_pactado, v.tipo_comision)
-    liquidacion = calcular_liquidacion(v.precio_venta_pactado, v.tipo_comision)
+    comision = calcular_comision(a.precio_venta_pactado, a.tipo_comision)
+    liquidacion = calcular_liquidacion(a.precio_venta_pactado, a.tipo_comision)
+    # El abono es anticipo de comisión: al vender, el cliente paga este saldo.
+    neta = calcular_comision_neta(a.precio_venta_pactado, a.tipo_comision, a.exclusividad_abono)
     d.section("CONDICIONES DEL CONTRATO")
-    d.two_col("Tipo de comisión", v.tipo_comision.nombre if v.tipo_comision else "-", "Vigencia", f"{v.vigencia_dias} días")
-    d.two_col("Precio", _clp(v.precio_venta_pactado), "Liquidación de pago", _clp(liquidacion))
-    d.two_col("Comisión", _clp(comision), "Abono exclusividad", _clp(v.exclusividad_abono))
+    d.two_col(
+        "Tipo de comisión", a.tipo_comision.nombre if a.tipo_comision else "-",
+        "Vigencia", f"{a.vigencia_dias} días",
+    )
+    d.two_col("Precio", _clp(a.precio_venta_pactado), "Liquidación de pago", _clp(liquidacion))
+    d.two_col("Comisión", _clp(comision), "Abono exclusividad", _clp(a.exclusividad_abono))
+    d.two_col("Comisión a pagar al cierre", _clp(neta), "", "")
 
     d.y -= 10
     for titulo, cuerpo in _CLAUSULAS:
@@ -287,15 +306,15 @@ def _page_orden(d: _Doc) -> None:
 
     razon_rut = d.t.rut if d.t and d.t.rut else "-"
     d.firmas([
-        ("FIRMA MANDANTE", f"{v.cliente.nombre}  {v.cliente.rut}"),
-        ("FIRMA EJECUTIVO", v.captador.rut or v.captador.nombre),
+        ("FIRMA MANDANTE", f"{a.cliente.nombre}  {a.cliente.rut}"),
+        ("FIRMA EJECUTIVO", a.captador.rut or a.captador.nombre),
         ("FIRMA MANDATARIO", f"{razon}  {razon_rut}"),
     ])
     d.c.showPage()
 
 
-def build_acta_orden_pdf(v: Vehiculo, tenant: Tenant | None) -> bytes:
-    d = _Doc(v, tenant)
+def build_acta_orden_pdf(acta: ActaRecepcion, tenant: Tenant | None) -> bytes:
+    d = _Doc(acta, tenant)
     _page_acta(d)
     _page_orden(d)
     d.c.save()

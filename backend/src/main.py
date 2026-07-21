@@ -2,7 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import settings
-from src.routers import auth, catalogs, health, navigation, tasacion, tenants, users, vehiculos
+from src.routers import (
+    abonos,
+    actas,
+    auth,
+    catalogs,
+    health,
+    navigation,
+    tasacion,
+    tenants,
+    users,
+    vehiculos,
+)
 
 app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_PREFIX}/openapi.json")
 
@@ -21,6 +32,8 @@ app.include_router(tenants.router, prefix=settings.API_V1_PREFIX)
 app.include_router(catalogs.router, prefix=settings.API_V1_PREFIX)
 app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(vehiculos.router, prefix=settings.API_V1_PREFIX)
+app.include_router(actas.router, prefix=settings.API_V1_PREFIX)
+app.include_router(abonos.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasacion.router, prefix=settings.API_V1_PREFIX)
 
 
