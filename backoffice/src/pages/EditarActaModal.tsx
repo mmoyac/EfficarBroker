@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getActa, updateActa } from "@/services/actas";
 import {
   listChecklistItems,
@@ -25,7 +25,15 @@ type ChecklistState = Record<
 export default function EditarActaModal({ actaId, onClose, onDone }: {
   actaId: number; onClose: () => void; onDone: () => void;
 }) {
-  const detalleQ = useQuery({ queryKey: ["acta", actaId], queryFn: () => getActa(actaId) });
+  const qc = useQueryClient();
+  // Siempre traer el detalle fresco al abrir: si mostrara la copia en caché de
+  // una edición previa, el formulario se inicializaría con datos viejos.
+  const detalleQ = useQuery({
+    queryKey: ["acta", actaId],
+    queryFn: () => getActa(actaId),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
   const sucursalesQ = useQuery({ queryKey: ["sucursales"], queryFn: listSucursales });
   const marcasQ = useQuery({ queryKey: ["vehiculo-marcas"], queryFn: listVehiculoMarcas });
   const coloresQ = useQuery({ queryKey: ["colores"], queryFn: listColores });
@@ -163,7 +171,14 @@ export default function EditarActaModal({ actaId, onClose, onDone }: {
         checklist: checklistPayload,
       });
     },
-    onSuccess: onDone,
+    onSuccess: () => {
+      // Purga la copia en caché del detalle para que la próxima apertura del
+      // acta (aquí o en /actas/:id) refleje los cambios recién guardados.
+      qc.removeQueries({ queryKey: ["acta", actaId] });
+      qc.invalidateQueries({ queryKey: ["actas"] });
+      qc.invalidateQueries({ queryKey: ["vehiculo-actas"] });
+      onDone();
+    },
     onError: (e: unknown) => setError(extractError(e)),
   });
 
