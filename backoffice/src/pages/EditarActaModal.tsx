@@ -83,6 +83,7 @@ export default function EditarActaModal({ actaId, onClose, onDone }: {
     setNChasis(a.vehiculo.n_chasis ?? "");
     setColorId(a.vehiculo.color_id ?? "");
     setSucursalVentaId(a.sucursal_venta_id);
+    setVendedorId(a.vendedor_user_id ?? "");
     setKm(String(a.km_ingreso));
     setTipoComisionId(a.tipo_comision ? tiposComisionQ.data?.find((t) => t.nombre === a.tipo_comision)?.id ?? "" : "");
     setPrecio(String(a.precio_venta_pactado));

@@ -141,6 +141,7 @@ def _to_out(a: ActaRecepcion) -> ActaOut:
         cliente=a.cliente.nombre,
         captador=a.captador.nombre,
         vendedor=a.vendedor.nombre if a.vendedor else None,
+        vendedor_user_id=a.vendedor_user_id,
         estado=a.estado.nombre, estado_code=a.estado.code,
         sucursal_id=a.sucursal_id, sucursal_venta_id=a.sucursal_venta_id,
         sucursal=a.sucursal.nombre, sucursal_venta=a.sucursal_venta.nombre,

@@ -78,6 +78,7 @@ class ActaOut(BaseModel):
     cliente: str
     captador: str
     vendedor: str | None = None
+    vendedor_user_id: int | None = None
     estado: str
     estado_code: str
     sucursal_id: int

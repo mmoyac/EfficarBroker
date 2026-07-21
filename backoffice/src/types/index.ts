@@ -294,6 +294,7 @@ export interface Acta {
   cliente: string;
   captador: string;
   vendedor: string | null;
+  vendedor_user_id: number | null;
   estado: string;
   estado_code: string;
   sucursal_id: number;
