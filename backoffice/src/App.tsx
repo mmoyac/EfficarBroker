@@ -8,8 +8,11 @@ import PlatformView from "@/pages/PlatformView";
 import Dashboard from "@/pages/Dashboard";
 import Users from "@/pages/Users";
 import NuevaActa from "@/pages/NuevaActa";
+import Actas from "@/pages/Actas";
+import ActaDetalle from "@/pages/ActaDetalle";
 import MisCaptaciones from "@/pages/MisCaptaciones";
 import DerivadasVentas from "@/pages/DerivadasVentas";
+import Vehiculos from "@/pages/Vehiculos";
 import Tasacion from "@/pages/Tasacion";
 import CatalogoVehicular from "@/pages/CatalogoVehicular";
 import Placeholder from "@/pages/Placeholder";
@@ -47,7 +50,10 @@ export default function App() {
             <Route path="catalogo" element={<CatalogoVehicular />} />
             <Route path="saas/catalogo-vehicular" element={<CatalogoVehicular />} />
             <Route path="config/usuarios" element={<Users />} />
+            <Route path="actas" element={<Actas />} />
             <Route path="actas/nueva" element={<NuevaActa />} />
+            <Route path="actas/:id" element={<ActaDetalle />} />
+            <Route path="vehiculos" element={<Vehiculos />} />
             <Route path="captaciones" element={<MisCaptaciones />} />
             <Route path="captaciones/derivadas" element={<DerivadasVentas />} />
             {/* Rutas del menú aún sin página: placeholder hasta implementar cada módulo */}

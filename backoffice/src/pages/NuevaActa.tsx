@@ -2,24 +2,26 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { listSucursales } from "@/services/users";
+import { createActa } from "@/services/actas";
 import {
-  createActa,
   findClienteByRut,
-  findVehiculoGlobalByPpu,
   listChecklistItems,
+  listColores,
   listCombustibles,
   listComunas,
+  listEstadosChecklist,
   listTiposComision,
   listTiposVehiculo,
   listVehiculoMarcas,
   listVehiculoModelos,
   listVehiculoVersiones,
+  lookupVehiculoByPpu,
 } from "@/services/vehiculos";
 import type { ActaCreateInput, ChecklistEntryInput } from "@/types";
 
 type ChecklistState = Record<
   number,
-  { presente: boolean; estado: string; fecha_vencimiento: string; observacion: string }
+  { presente: boolean; estado_checklist_id: number | ""; fecha_vencimiento: string; observacion: string }
 >;
 
 export default function NuevaActa() {
@@ -30,6 +32,8 @@ export default function NuevaActa() {
   const comunasQ = useQuery({ queryKey: ["comunas"], queryFn: listComunas });
   const tiposVehiculoQ = useQuery({ queryKey: ["tipos-vehiculo"], queryFn: listTiposVehiculo });
   const combustiblesQ = useQuery({ queryKey: ["combustibles"], queryFn: listCombustibles });
+  const coloresQ = useQuery({ queryKey: ["colores"], queryFn: listColores });
+  const estadosChecklistQ = useQuery({ queryKey: ["estados-checklist"], queryFn: listEstadosChecklist });
   const tiposComisionQ = useQuery({ queryKey: ["tipos-comision"], queryFn: listTiposComision });
 
   const [cliente, setCliente] = useState({ rut: "", nombre: "", email: "", telefono: "", domicilio: "", comuna_id: "" as number | "" });
@@ -39,7 +43,7 @@ export default function NuevaActa() {
     modelo_id: "" as number | "",
     version_id: "" as number | "",
     anio: "", n_motor: "", n_chasis: "", km_ingreso: "",
-    color: "",
+    color_id: "" as number | "",
     tipo_vehiculo_id: "" as number | "",
     combustible_id: "" as number | "",
     sucursal_id: "" as number | "",
@@ -60,6 +64,7 @@ export default function NuevaActa() {
   const [error, setError] = useState<string | null>(null);
   const [rutHint, setRutHint] = useState<string | null>(null);
   const [ppuHint, setPpuHint] = useState<string | null>(null);
+  const [ppuBloqueada, setPpuBloqueada] = useState(false);
 
   const items = useMemo(
     () => (checklistQ.data ?? []).slice().sort((a, b) => a.orden - b.orden),
@@ -67,18 +72,18 @@ export default function NuevaActa() {
   );
 
   const getRow = (id: number) =>
-    checklist[id] ?? { presente: false, estado: "", fecha_vencimiento: "", observacion: "" };
+    checklist[id] ?? { presente: false, estado_checklist_id: "" as number | "", fecha_vencimiento: "", observacion: "" };
   const setRow = (id: number, patch: Partial<ChecklistState[number]>) =>
     setChecklist((c) => ({ ...c, [id]: { ...getRow(id), ...patch } }));
 
   const mut = useMutation({
     mutationFn: (input: ActaCreateInput) => createActa(input),
-    onSuccess: () => navigate("/captaciones", { replace: true }),
+    onSuccess: () => navigate("/actas", { replace: true }),
     onError: (e: unknown) => setError(extractError(e)),
   });
 
   const findClienteMut = useMutation({ mutationFn: (rut: string) => findClienteByRut(rut) });
-  const findVehiculoMut = useMutation({ mutationFn: (ppu: string) => findVehiculoGlobalByPpu(ppu) });
+  const lookupVehiculoMut = useMutation({ mutationFn: (ppu: string) => lookupVehiculoByPpu(ppu) });
 
   const modelosQ = useQuery({
     queryKey: ["vehiculo-modelos", veh.marca_id],
@@ -121,35 +126,48 @@ export default function NuevaActa() {
 
   async function handlePpuBlur() {
     const ppu = veh.ppu.trim().toUpperCase();
+    setPpuBloqueada(false);
     if (ppu.length < 4) {
       setPpuHint(null);
       return;
     }
     try {
-      const res = await findVehiculoMut.mutateAsync(ppu);
+      const res = await lookupVehiculoMut.mutateAsync(ppu);
       if (!res.found || !res.vehiculo) {
-        setPpuHint("Patente no encontrada en la base global.");
+        setPpuHint("Patente nueva en este tenant. Completa los datos del vehículo.");
         return;
       }
+      const v = res.vehiculo;
+      // Precarga la ficha física conocida del auto (marca/modelo se derivan de la versión).
       setVeh((prev) => ({
         ...prev,
         ppu,
-        marca_id: "",
-        modelo_id: "",
-        version_id: "",
-        anio: String(res.vehiculo?.anio ?? ""),
-        n_motor: res.vehiculo?.n_motor ?? "",
-        n_chasis: res.vehiculo?.n_chasis ?? "",
+        version_id: v.version_id,
+        anio: String(v.anio),
+        n_motor: v.n_motor ?? "",
+        n_chasis: v.n_chasis ?? "",
+        color_id: v.color_id ?? "",
       }));
-      setPpuHint(`Patente encontrada en tenant ${res.vehiculo.tenant_nombre}. Datos del vehículo cargados.`);
+      if (res.tiene_acta_activa) {
+        // No se puede recepcionar un auto que ya tiene un acta vigente.
+        setPpuBloqueada(true);
+        setPpuHint(`Este auto (${v.marca} ${v.modelo}) ya tiene un acta VIGENTE en el tenant. No puede recepcionarse de nuevo hasta cerrarla.`);
+      } else {
+        setPpuBloqueada(false);
+        setPpuHint(`Reingreso: ${v.marca} ${v.modelo} ya fue corretado antes (${res.total_actas} acta(s)). Datos del vehículo precargados; verifica marca/modelo abajo.`);
+      }
     } catch {
-      setPpuHint("No se pudo buscar la patente en la base global.");
+      setPpuHint("No se pudo consultar la patente.");
     }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (ppuBloqueada) {
+      setError("Este vehículo ya tiene un acta vigente. No puede recepcionarse de nuevo.");
+      return;
+    }
     if (veh.sucursal_id === "") {
       setError("Selecciona una sucursal.");
       return;
@@ -175,7 +193,7 @@ export default function NuevaActa() {
       return {
         checklist_item_id: it.id,
         presente: r.presente,
-        estado: r.estado || null,
+        estado_checklist_id: r.estado_checklist_id === "" ? null : Number(r.estado_checklist_id),
         fecha_vencimiento: r.fecha_vencimiento || null,
         observacion: r.observacion || null,
       };
@@ -195,7 +213,7 @@ export default function NuevaActa() {
       n_motor: veh.n_motor.trim() || null,
       n_chasis: veh.n_chasis.trim() || null,
       km_ingreso: Number(veh.km_ingreso || 0),
-      color: veh.color.trim() || null,
+      color_id: veh.color_id === "" ? null : Number(veh.color_id),
       tipo_vehiculo_id: veh.tipo_vehiculo_id === "" ? null : Number(veh.tipo_vehiculo_id),
       combustible_id: veh.combustible_id === "" ? null : Number(veh.combustible_id),
       sucursal_id: Number(veh.sucursal_id),
@@ -335,7 +353,17 @@ export default function NuevaActa() {
                 {combustiblesQ.data?.map((t) => (<option key={t.id} value={t.id}>{t.nombre}</option>))}
               </select>
             </label>
-            <Input label="Color" value={veh.color} onChange={(v) => setVeh({ ...veh, color: v })} />
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-brand-ink">Color</span>
+              <select
+                value={veh.color_id}
+                onChange={(e) => setVeh({ ...veh, color_id: e.target.value === "" ? "" : Number(e.target.value) })}
+                className={inputCls}
+              >
+                <option value="">Seleccionar</option>
+                {coloresQ.data?.map((c) => (<option key={c.id} value={c.id}>{c.nombre}</option>))}
+              </select>
+            </label>
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-brand-ink">Sucursal de recepción</span>
               <select
@@ -438,13 +466,14 @@ export default function NuevaActa() {
                   <label className="flex items-center gap-2 sm:col-span-4">
                     <input type="checkbox" checked={r.presente} onChange={(e) => setRow(it.id, { presente: e.target.checked })} />
                     <span className="text-sm text-brand-ink">{it.nombre}</span>
-                    <span className="text-xs text-brand-muted-2">({it.tipo})</span>
                   </label>
-                  <select value={r.estado} onChange={(e) => setRow(it.id, { estado: e.target.value })} className={`${inputCls} sm:col-span-2`}>
+                  <select
+                    value={r.estado_checklist_id}
+                    onChange={(e) => setRow(it.id, { estado_checklist_id: e.target.value === "" ? "" : Number(e.target.value) })}
+                    className={`${inputCls} sm:col-span-2`}
+                  >
                     <option value="">Estado…</option>
-                    <option value="OK">OK</option>
-                    <option value="Observado">Observado</option>
-                    <option value="Faltante">Faltante</option>
+                    {estadosChecklistQ.data?.map((es) => (<option key={es.id} value={es.id}>{es.nombre}</option>))}
                   </select>
                   {it.requiere_vencimiento ? (
                     <input type="date" value={r.fecha_vencimiento} onChange={(e) => setRow(it.id, { fecha_vencimiento: e.target.value })} className={`${inputCls} sm:col-span-3`} />
@@ -464,7 +493,7 @@ export default function NuevaActa() {
           <button type="button" onClick={() => navigate(-1)} className="rounded-lg border border-brand-surface-2 px-4 py-2 text-sm hover:bg-white">
             Cancelar
           </button>
-          <button type="submit" disabled={mut.isPending} className="rounded-lg bg-brand-accent px-5 py-2 text-sm font-semibold text-black hover:bg-brand-accent-600 disabled:opacity-60">
+          <button type="submit" disabled={mut.isPending || ppuBloqueada} className="rounded-lg bg-brand-accent px-5 py-2 text-sm font-semibold text-black hover:bg-brand-accent-600 disabled:opacity-60">
             {mut.isPending ? "Guardando…" : "Registrar recepción"}
           </button>
         </div>
