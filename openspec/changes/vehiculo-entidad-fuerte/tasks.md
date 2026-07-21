@@ -67,3 +67,15 @@
 - [x] 6.8 El PDF de un acta histórica refleja el cliente y checklist de esa recepción
 - [x] 6.9 Derivación y comisión cruzada aisladas por acta
 - [x] 6.10 Migración `upgrade` + `downgrade` sobre la base de seed sin pérdida de datos
+
+## 7. Refinamientos de prueba de usuario (jornada 2026-07-21)
+
+- [x] 7.1 Migración `0011`: columna `observaciones` en `actas_recepcion`
+- [x] 7.2 Sucursal de recepción por defecto (la del usuario); `400` si no tiene y no la envía
+- [x] 7.3 Vendedor nominado al derivar: obligatorio y validado a la sucursal de venta; `equipo-ventas?sucursal_id=` filtra por sucursal
+- [x] 7.4 Observaciones del acta capturadas y persistidas
+- [x] 7.5 `PATCH /api/v1/actas/{id}` edita todo incluido el checklist (upsert por ítem), observaciones y vendedor
+- [x] 7.6 `VehiculoFichaOut` expone `marca_id`/`modelo_id` para precargar la cascada en el reingreso
+- [x] 7.7 PDF: "Firma Ejecutivo" = vendedor nominado (derivada) o captador (propia); columna de vencimiento separada; sección de observaciones
+- [x] 7.8 Backoffice: autocomplete de RUT/PPU al escribir, sucursal implícita, selector de vendedor al derivar, edición completa del acta, textarea de observaciones
+- [x] 7.9 Pruebas HTTP de los refinamientos (15 aserciones) + PDF con vendedor nominado, vencimiento y observaciones

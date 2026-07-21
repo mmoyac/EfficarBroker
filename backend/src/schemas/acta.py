@@ -36,12 +36,17 @@ class ActaCreate(BaseModel):
     combustible_id: int | None = None
     # --- Del acta ---
     km_ingreso: int = Field(default=0, ge=0)
-    sucursal_id: int  # sucursal de origen/captación
+    # sucursal de origen/captación: si se omite, se usa la del usuario autenticado.
+    sucursal_id: int | None = None
     sucursal_venta_id: int  # sucursal de venta (= sucursal_id si es venta propia)
+    # Vendedor nominado: obligatorio al derivar (debe pertenecer a la sucursal de
+    # venta). En venta propia puede omitirse (el ejecutivo es el captador).
+    vendedor_user_id: int | None = None
     tipo_comision_id: int
     precio_venta_pactado: int = Field(default=0, ge=0)
     vigencia_dias: int = Field(default=30, ge=1)
     exclusividad_abono: int = Field(default=40000, ge=0)
+    observaciones: str | None = Field(default=None, max_length=1000)
     checklist: list[ChecklistEntryIn] = Field(default_factory=list)
 
 
@@ -51,6 +56,8 @@ class VehiculoFichaOut(BaseModel):
     id: int
     ppu: str
     version_id: int
+    marca_id: int
+    modelo_id: int
     marca: str
     modelo: str
     version: str
@@ -89,6 +96,7 @@ class ActaOut(BaseModel):
     precio_venta_final: int | None = None
     fecha_recepcion: date
     fecha_venta: date | None = None
+    observaciones: str | None = None
     cerrada: bool
     motivo_cierre: str | None = None
     fecha_cierre: date | None = None
@@ -114,22 +122,31 @@ class ActaDetailOut(ActaOut):
 
 
 class ActaUpdateIn(BaseModel):
-    """Edición de los datos del acta mientras está en RECEPCIONADO."""
+    """Edición del acta mientras está en RECEPCIONADO.
+
+    Permite corregir todo lo circunstancial: orden de venta, sucursales,
+    vendedor nominado, observaciones, datos del cliente y el checklist completo.
+    La identidad física del auto se edita aparte (PATCH /vehiculos).
+    """
 
     model_config = ConfigDict(strict=True)
 
     sucursal_id: int | None = None
     sucursal_venta_id: int | None = None
+    vendedor_user_id: int | None = None
     km_ingreso: int | None = Field(default=None, ge=0)
     tipo_comision_id: int | None = None
     precio_venta_pactado: int | None = Field(default=None, ge=0)
     vigencia_dias: int | None = Field(default=None, ge=1)
     exclusividad_abono: int | None = Field(default=None, ge=0)
+    observaciones: str | None = Field(default=None, max_length=1000)
     cliente_nombre: str | None = Field(default=None, min_length=1, max_length=150)
     cliente_email: EmailStr | None = None
     cliente_telefono: str | None = Field(default=None, max_length=30)
     cliente_domicilio: str | None = Field(default=None, max_length=255)
     cliente_comuna_id: int | None = None
+    # Si se envía, reemplaza el checklist del acta (upsert por checklist_item_id).
+    checklist: list[ChecklistEntryIn] | None = None
 
 
 class RegistrarVentaIn(BaseModel):

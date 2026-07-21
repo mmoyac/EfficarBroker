@@ -137,7 +137,7 @@ function RegistrarVentaModal({
 }: {
   acta: Acta; onClose: () => void; onDone: () => void;
 }) {
-  const equipoQ = useQuery({ queryKey: ["equipo-ventas"], queryFn: listEquipoVentas });
+  const equipoQ = useQuery({ queryKey: ["equipo-ventas"], queryFn: () => listEquipoVentas() });
   const [vendedorId, setVendedorId] = useState<number | "">("");
   const [precio, setPrecio] = useState(String(acta.precio_venta_pactado));
   const [error, setError] = useState<string | null>(null);

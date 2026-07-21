@@ -70,8 +70,10 @@ export async function listVehiculoVersiones(modeloId: number): Promise<VehiculoV
   return data;
 }
 
-export async function listEquipoVentas(): Promise<EquipoVenta[]> {
-  const { data } = await api.get<EquipoVenta[]>("/equipo-ventas");
+export async function listEquipoVentas(sucursalId?: number): Promise<EquipoVenta[]> {
+  const { data } = await api.get<EquipoVenta[]>("/equipo-ventas", {
+    params: sucursalId ? { sucursal_id: sucursalId } : {},
+  });
   return data;
 }
 

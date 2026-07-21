@@ -63,6 +63,8 @@ class ActaRecepcion(TenantMixin, TimestampMixin, Base):
     # Anticipo de comisión, NO depósito reembolsable: al vender se descuenta de
     # la comisión (cláusula QUINTA del acta firmada), no se devuelve en efectivo.
     exclusividad_abono: Mapped[int] = mapped_column(Integer, nullable=False, default=40000)
+    # Observaciones de texto libre del ejecutivo (pie del acta real).
+    observaciones: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     estado_abono_id: Mapped[int] = mapped_column(
         ForeignKey("estados_abono.id", ondelete="RESTRICT"), index=True, nullable=False
     )

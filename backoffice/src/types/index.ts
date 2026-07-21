@@ -88,20 +88,23 @@ export type VehiculoUpdateInput = Partial<{
   motivo: string | null;
 }>;
 
-/** Edición de los datos del acta mientras está en RECEPCIONADO. */
+/** Edición del acta mientras está en RECEPCIONADO (todo lo circunstancial). */
 export type ActaUpdateInput = Partial<{
   sucursal_id: number;
   sucursal_venta_id: number;
+  vendedor_user_id: number | null;
   km_ingreso: number;
   tipo_comision_id: number;
   precio_venta_pactado: number;
   vigencia_dias: number;
   exclusividad_abono: number;
+  observaciones: string | null;
   cliente_nombre: string;
   cliente_email: string | null;
   cliente_telefono: string | null;
   cliente_domicilio: string | null;
   cliente_comuna_id: number | null;
+  checklist: ChecklistEntryInput[];
 }>;
 
 export interface CodeNombre {
@@ -145,12 +148,14 @@ export interface ActaCreateInput {
   tipo_vehiculo_id: number | null;
   combustible_id: number | null;
   km_ingreso: number;
-  sucursal_id: number;
+  sucursal_id: number | null;
   sucursal_venta_id: number;
+  vendedor_user_id: number | null;
   tipo_comision_id: number;
   precio_venta_pactado: number;
   vigencia_dias: number;
   exclusividad_abono: number;
+  observaciones: string | null;
   checklist: ChecklistEntryInput[];
 }
 
@@ -266,6 +271,8 @@ export interface VehiculoFicha {
   id: number;
   ppu: string;
   version_id: number;
+  marca_id: number;
+  modelo_id: number;
   marca: string;
   modelo: string;
   version: string;
@@ -305,6 +312,7 @@ export interface Acta {
   precio_venta_final: number | null;
   fecha_recepcion: string;
   fecha_venta: string | null;
+  observaciones: string | null;
   cerrada: boolean;
   motivo_cierre: string | null;
   fecha_cierre: string | null;
@@ -314,6 +322,8 @@ export interface EquipoVenta {
   id: number;
   nombre: string;
   email: string;
+  sucursal_id: number | null;
+  sucursal: string | null;
 }
 
 export interface ActaChecklistRow {

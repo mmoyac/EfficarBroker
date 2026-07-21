@@ -75,8 +75,15 @@ export default function ActaDetalle() {
           <Field label="Estado del abono" value={a.estado_abono} />
           <Field label="Vigencia" value={`${a.vigencia_dias} días`} />
           <Field label="Sucursal de venta" value={a.sucursal_venta + (a.derivado ? " (derivada)" : "")} />
+          <Field label="Vendedor / ejecutivo" value={a.vendedor ?? `${a.captador} (captador)`} />
         </Grid>
       </Section>
+
+      {a.observaciones && (
+        <Section title="Observaciones">
+          <p className="text-sm text-brand-ink whitespace-pre-wrap">{a.observaciones}</p>
+        </Section>
+      )}
 
       <Section title="Checklist de recepción">
         <div className="overflow-x-auto">

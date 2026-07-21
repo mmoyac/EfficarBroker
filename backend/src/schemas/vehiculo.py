@@ -142,6 +142,8 @@ class EquipoVentaOut(BaseModel):
     id: int
     nombre: str
     email: str
+    sucursal_id: int | None = None
+    sucursal: str | None = None
 
 
 class VehiculoGlobalLookupItemOut(BaseModel):

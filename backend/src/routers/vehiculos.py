@@ -55,6 +55,7 @@ def _cliente_out(c: Cliente) -> ClienteOut:
 def _ficha(v: Vehiculo) -> VehiculoFichaOut:
     return VehiculoFichaOut(
         id=v.id, ppu=v.ppu, version_id=v.version_id,
+        marca_id=v.marca.id, modelo_id=v.modelo.id,
         marca=v.marca_nombre, modelo=v.modelo_nombre, version=v.version.nombre,
         anio=v.anio, n_motor=v.n_motor, n_chasis=v.n_chasis,
         color=v.color.nombre if v.color else None, color_id=v.color_id,

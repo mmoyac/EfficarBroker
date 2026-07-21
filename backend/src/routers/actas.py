@@ -89,9 +89,41 @@ def _validate_catalog(db: Session, model, id_: int | None, msg: str) -> None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
 
+def _validar_vendedor(
+    db: Session, vendedor_user_id: int | None, tenant_id: int,
+    sucursal_venta_id: int, *, requerido: bool,
+) -> User | None:
+    """Vendedor nominado: Sales activo del tenant que pertenece a la sucursal de venta."""
+    if vendedor_user_id is None:
+        if requerido:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Al derivar debes indicar el vendedor de la sucursal de venta.",
+            )
+        return None
+    vendedor = db.get(User, vendedor_user_id)
+    if (
+        vendedor is None
+        or vendedor.tenant_id != tenant_id
+        or not vendedor.activo
+        or vendedor.role.code != "Sales"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El vendedor debe ser un ejecutivo de ventas activo del tenant",
+        )
+    if vendedor.sucursal_id != sucursal_venta_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El vendedor no pertenece a la sucursal de venta",
+        )
+    return vendedor
+
+
 def _ficha(v: Vehiculo) -> VehiculoFichaOut:
     return VehiculoFichaOut(
         id=v.id, ppu=v.ppu, version_id=v.version_id,
+        marca_id=v.marca.id, modelo_id=v.modelo.id,
         marca=v.marca_nombre, modelo=v.modelo_nombre, version=v.version.nombre,
         anio=v.anio, n_motor=v.n_motor, n_chasis=v.n_chasis,
         color=v.color.nombre if v.color else None, color_id=v.color_id,
@@ -122,6 +154,7 @@ def _to_out(a: ActaRecepcion) -> ActaOut:
         estado_abono=a.estado_abono.nombre, estado_abono_code=a.estado_abono.code,
         precio_venta_final=a.precio_venta_final,
         fecha_recepcion=a.fecha_recepcion, fecha_venta=a.fecha_venta,
+        observaciones=a.observaciones,
         cerrada=a.cerrada,
         motivo_cierre=a.motivo_cierre.nombre if a.motivo_cierre else None,
         fecha_cierre=a.fecha_cierre,
@@ -188,7 +221,15 @@ def crear_acta(
 ) -> ActaDetailOut:
     ppu = body.ppu.strip().upper()
 
-    suc = db.get(Sucursal, body.sucursal_id)
+    # Sucursal de recepción: por defecto la del usuario autenticado; solo se
+    # exige elegirla si el usuario no tiene una (roles transversales).
+    sucursal_id = body.sucursal_id if body.sucursal_id is not None else current.sucursal_id
+    if sucursal_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes indicar la sucursal de recepción (tu usuario no tiene una asignada).",
+        )
+    suc = db.get(Sucursal, sucursal_id)
     if suc is None or suc.tenant_id != tenant_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sucursal inválida")
 
@@ -207,6 +248,11 @@ def crear_acta(
     _validate_catalog(db, Combustible, body.combustible_id, "Combustible inválido")
     _validate_catalog(db, Color, body.color_id, "Color inválido")
     _validate_catalog(db, Comuna, body.cliente.comuna_id, "Comuna inválida")
+
+    # Vendedor nominado. Al derivar (sucursal de venta != origen) es obligatorio
+    # y debe pertenecer a la sucursal de venta. En venta propia es opcional.
+    derivado = suc_venta.id != suc.id
+    vendedor = _validar_vendedor(db, body.vendedor_user_id, tenant_id, suc_venta.id, requerido=derivado)
 
     # Validar el checklist antes de tocar la BD (400 no es conflicto de concurrencia).
     valid_items = {i.id for i in db.scalars(select(ChecklistItem)).all()}
@@ -290,6 +336,8 @@ def crear_acta(
             exclusividad_abono=body.exclusividad_abono,
             estado_abono_id=_estado_abono(db, NO_DEVENGADO).id,
             fecha_cobro_abono=date.today() if body.exclusividad_abono > 0 else None,
+            observaciones=body.observaciones,
+            vendedor_user_id=vendedor.id if vendedor else None,
             cerrada=False,
         )
         db.add(acta)
@@ -554,9 +602,17 @@ def editar_acta(
         _validate_catalog(db, TipoComision, patch["tipo_comision_id"], "Tipo de comisión inválido")
         a.tipo_comision_id = patch["tipo_comision_id"]
 
-    for campo in ("km_ingreso", "precio_venta_pactado", "vigencia_dias", "exclusividad_abono"):
-        if patch.get(campo) is not None:
+    for campo in ("km_ingreso", "precio_venta_pactado", "vigencia_dias", "exclusividad_abono", "observaciones"):
+        if campo in patch:
             setattr(a, campo, patch[campo])
+
+    # Vendedor nominado: revalidar contra la sucursal de venta (ya actualizada).
+    if "vendedor_user_id" in patch:
+        derivado = a.sucursal_venta_id != a.sucursal_id
+        vendedor = _validar_vendedor(
+            db, patch["vendedor_user_id"], tenant_id, a.sucursal_venta_id, requerido=derivado
+        )
+        a.vendedor_user_id = vendedor.id if vendedor else None
 
     cliente_map = {
         "cliente_nombre": "nombre", "cliente_email": "email", "cliente_telefono": "telefono",
@@ -567,6 +623,32 @@ def editar_acta(
             if k == "cliente_comuna_id":
                 _validate_catalog(db, Comuna, patch[k], "Comuna inválida")
             setattr(a.cliente, attr, patch[k])
+
+    # Checklist: si viene, se hace upsert por checklist_item_id (el cliente puede
+    # haber entregado más o menos cosas de las registradas al inicio).
+    if body.checklist is not None:
+        valid_items = {i.id for i in db.scalars(select(ChecklistItem)).all()}
+        valid_estados = {e.id for e in db.scalars(select(EstadoChecklist)).all()}
+        existentes = {c.checklist_item_id: c for c in a.checklist}
+        for entry in body.checklist:
+            if entry.checklist_item_id not in valid_items:
+                continue
+            if entry.estado_checklist_id is not None and entry.estado_checklist_id not in valid_estados:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="Estado de checklist inválido"
+                )
+            row = existentes.get(entry.checklist_item_id)
+            if row is None:
+                db.add(ActaChecklist(
+                    acta=a, checklist_item_id=entry.checklist_item_id,
+                    presente=entry.presente, estado_checklist_id=entry.estado_checklist_id,
+                    fecha_vencimiento=entry.fecha_vencimiento, observacion=entry.observacion,
+                ))
+            else:
+                row.presente = entry.presente
+                row.estado_checklist_id = entry.estado_checklist_id
+                row.fecha_vencimiento = entry.fecha_vencimiento
+                row.observacion = entry.observacion
 
     db.flush()
     audit_service.log(

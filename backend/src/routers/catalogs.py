@@ -125,19 +125,31 @@ def list_assignable_roles(
 
 @router.get("/equipo-ventas", response_model=list[EquipoVentaOut])
 def list_equipo_ventas(
+    sucursal_id: int | None = None,
     db: Session = Depends(get_db),
     tenant_id: int = Depends(get_effective_tenant_id),
     _=Depends(require_roles("Sales", "Management", "TenantAdmin")),
-) -> list[User]:
-    """Ejecutivos de ventas activos del tenant (para elegir vendedor)."""
-    return list(
-        db.scalars(
-            select(User)
-            .join(Role, User.role_id == Role.id)
-            .where(User.tenant_id == tenant_id, User.activo.is_(True), Role.code == "Sales")
-            .order_by(User.nombre)
-        ).all()
+) -> list[EquipoVentaOut]:
+    """Ejecutivos de ventas activos del tenant (para elegir vendedor).
+
+    Con `?sucursal_id=` se restringe a los de esa sucursal (para nominar el
+    vendedor al derivar una venta).
+    """
+    stmt = (
+        select(User)
+        .join(Role, User.role_id == Role.id)
+        .where(User.tenant_id == tenant_id, User.activo.is_(True), Role.code == "Sales")
+        .order_by(User.nombre)
     )
+    if sucursal_id is not None:
+        stmt = stmt.where(User.sucursal_id == sucursal_id)
+    return [
+        EquipoVentaOut(
+            id=u.id, nombre=u.nombre, email=u.email,
+            sucursal_id=u.sucursal_id, sucursal=u.sucursal.nombre if u.sucursal else None,
+        )
+        for u in db.scalars(stmt).all()
+    ]
 
 
 @router.get("/sucursales", response_model=list[SucursalOut])

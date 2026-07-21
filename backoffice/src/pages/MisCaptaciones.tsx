@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,14 +6,12 @@ import {
   cerrarSinVenta,
   deleteActa,
   downloadDocumentoFirma,
-  getActa,
   listActas,
   registrarVenta,
-  updateActa,
 } from "@/services/actas";
 import { listEquipoVentas } from "@/services/vehiculos";
 import { listMotivosCierre } from "@/services/catalogos";
-import { listSucursales } from "@/services/users";
+import EditarActaModal from "@/pages/EditarActaModal";
 import type { Acta } from "@/types";
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -204,106 +202,8 @@ export default function MisCaptaciones() {
   );
 }
 
-function EditarActaModal({ actaId, onClose, onDone }: { actaId: number; onClose: () => void; onDone: () => void }) {
-  const detalleQ = useQuery({ queryKey: ["acta", actaId], queryFn: () => getActa(actaId) });
-  const sucursalesQ = useQuery({ queryKey: ["sucursales"], queryFn: listSucursales });
-
-  const [sucursalId, setSucursalId] = useState<number | "">("");
-  const [sucursalVentaId, setSucursalVentaId] = useState<number | "">("");
-  const [km, setKm] = useState("");
-  const [precio, setPrecio] = useState("");
-  const [vigencia, setVigencia] = useState("");
-  const [abono, setAbono] = useState("");
-  const [clienteNombre, setClienteNombre] = useState("");
-  const [clienteEmail, setClienteEmail] = useState("");
-  const [clienteTelefono, setClienteTelefono] = useState("");
-  const [initialized, setInitialized] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!detalleQ.data || initialized) return;
-    const a = detalleQ.data;
-    setSucursalId(a.sucursal_id);
-    setSucursalVentaId(a.sucursal_venta_id);
-    setKm(String(a.km_ingreso));
-    setPrecio(String(a.precio_venta_pactado));
-    setVigencia(String(a.vigencia_dias));
-    setAbono(String(a.exclusividad_abono));
-    setClienteNombre(a.cliente_detalle.nombre);
-    setClienteEmail(a.cliente_detalle.email ?? "");
-    setClienteTelefono(a.cliente_detalle.telefono ?? "");
-    setInitialized(true);
-  }, [detalleQ.data, initialized]);
-
-  const mut = useMutation({
-    mutationFn: () => updateActa(actaId, {
-      sucursal_id: sucursalId === "" ? undefined : Number(sucursalId),
-      sucursal_venta_id: sucursalVentaId === "" ? undefined : Number(sucursalVentaId),
-      km_ingreso: Number(km || 0),
-      precio_venta_pactado: Number(precio || 0),
-      vigencia_dias: Number(vigencia || 30),
-      exclusividad_abono: Number(abono || 0),
-      cliente_nombre: clienteNombre.trim(),
-      cliente_email: clienteEmail.trim() || null,
-      cliente_telefono: clienteTelefono.trim() || null,
-    }),
-    onSuccess: onDone,
-    onError: (e: unknown) => setError(extractError(e)),
-  });
-
-  return (
-    <Modal title="Editar acta (RECEPCIONADO)" onClose={onClose}>
-      {detalleQ.isLoading && <p className="mt-3 text-sm text-brand-muted">Cargando datos...</p>}
-      {detalleQ.data && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setError(null);
-            if (!clienteNombre.trim()) { setError("Nombre de cliente requerido."); return; }
-            mut.mutate();
-          }}
-          className="mt-4 grid gap-3 sm:grid-cols-2"
-        >
-          <p className="sm:col-span-2 text-xs text-brand-muted-2">
-            Para corregir marca, modelo o patente del auto usa el mantenedor de Vehículos.
-          </p>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-brand-ink">Sucursal de recepción</span>
-            <select value={sucursalId} onChange={(e) => setSucursalId(e.target.value === "" ? "" : Number(e.target.value))} className={inputCls} required>
-              <option value="" disabled>Seleccionar</option>
-              {sucursalesQ.data?.map((s) => (<option key={s.id} value={s.id}>{s.nombre}</option>))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-brand-ink">Sucursal de venta</span>
-            <select value={sucursalVentaId} onChange={(e) => setSucursalVentaId(e.target.value === "" ? "" : Number(e.target.value))} className={inputCls} required>
-              <option value="" disabled>Seleccionar</option>
-              {sucursalesQ.data?.map((s) => (<option key={s.id} value={s.id}>{s.nombre}</option>))}
-            </select>
-          </label>
-          <label className="block"><span className="mb-1 block text-sm font-medium text-brand-ink">KM ingreso</span><input type="number" value={km} onChange={(e) => setKm(e.target.value)} className={inputCls} /></label>
-          <label className="block"><span className="mb-1 block text-sm font-medium text-brand-ink">Precio pactado</span><input type="number" value={precio} onChange={(e) => setPrecio(e.target.value)} className={inputCls} required /></label>
-          <label className="block"><span className="mb-1 block text-sm font-medium text-brand-ink">Vigencia días</span><input type="number" value={vigencia} onChange={(e) => setVigencia(e.target.value)} className={inputCls} required /></label>
-          <label className="block"><span className="mb-1 block text-sm font-medium text-brand-ink">Abono exclusividad</span><input type="number" value={abono} onChange={(e) => setAbono(e.target.value)} className={inputCls} required /></label>
-          <label className="block"><span className="mb-1 block text-sm font-medium text-brand-ink">Cliente</span><input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className={inputCls} required /></label>
-          <label className="block"><span className="mb-1 block text-sm font-medium text-brand-ink">Email cliente</span><input type="email" value={clienteEmail} onChange={(e) => setClienteEmail(e.target.value)} className={inputCls} /></label>
-          <label className="block sm:col-span-2"><span className="mb-1 block text-sm font-medium text-brand-ink">Teléfono cliente</span><input value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} className={inputCls} /></label>
-
-          {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
-          <div className="sm:col-span-2 mt-2 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="rounded-lg border border-brand-surface-2 px-4 py-2 text-sm hover:bg-brand-surface">Cancelar</button>
-            <button type="submit" disabled={mut.isPending} className="rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-black hover:bg-brand-accent-600 disabled:opacity-60">
-              {mut.isPending ? "Guardando..." : "Guardar cambios"}
-            </button>
-          </div>
-        </form>
-      )}
-    </Modal>
-  );
-}
-
 function RegistrarVentaModal({ acta, onClose, onDone }: { acta: Acta; onClose: () => void; onDone: () => void }) {
-  const equipoQ = useQuery({ queryKey: ["equipo-ventas"], queryFn: listEquipoVentas });
+  const equipoQ = useQuery({ queryKey: ["equipo-ventas"], queryFn: () => listEquipoVentas() });
   const [vendedorId, setVendedorId] = useState<number | "">("");
   const [precio, setPrecio] = useState(String(acta.precio_venta_pactado));
   const [error, setError] = useState<string | null>(null);

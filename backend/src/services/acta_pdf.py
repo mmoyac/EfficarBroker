@@ -195,35 +195,47 @@ def _page_acta(d: _Doc) -> None:
     _bloque_vehiculo(d, v, a)
 
     d.section("DOCUMENTOS Y ACCESORIOS DEL VEHÍCULO")
-    # cabecera de tabla
+    # Columnas: descripción | SÍ | NO | Fecha Recep. | Vencimiento | Observaciones
+    col_si = d.w - 250
+    col_no = d.w - 228
+    col_recep = d.w - 205
+    col_venc = d.w - 150
+    col_obs = d.w - 95
     d.c.setFont("Helvetica-Bold", 7)
     d.c.setFillColor(black)
     d.c.drawString(MARGIN + 6, d.y, "Declaración de Aceptación y Recepción")
-    d.c.drawString(d.w - 220, d.y, "SÍ")
-    d.c.drawString(d.w - 195, d.y, "NO")
-    d.c.drawString(d.w - 165, d.y, "Fecha Recep.")
-    d.c.drawString(d.w - 95, d.y, "Observaciones")
+    d.c.drawString(col_si, d.y, "SÍ")
+    d.c.drawString(col_no, d.y, "NO")
+    d.c.drawString(col_recep, d.y, "Fecha Recep.")
+    d.c.drawString(col_venc, d.y, "Vencimiento")
+    d.c.drawString(col_obs, d.y, "Observaciones")
     d.y -= 12
     fecha_recep = a.fecha_recepcion.strftime("%d-%m-%y")
     for idx, item in enumerate(sorted(a.checklist, key=lambda ci: ci.item.orden), start=1):
         d.c.setFont("Helvetica", 7)
         d.c.drawString(MARGIN + 6, d.y, f"{idx:>2}. {item.item.nombre}")
-        d.c.drawString(d.w - 218, d.y, "X" if item.presente else "")
-        d.c.drawString(d.w - 193, d.y, "" if item.presente else "X")
-        d.c.drawString(d.w - 165, d.y, fecha_recep)
-        venc = item.fecha_vencimiento.strftime("%d-%m-%y") if item.fecha_vencimiento else (item.observacion or "")
-        d.c.drawString(d.w - 95, d.y, venc[:28])
+        d.c.drawString(col_si, d.y, "X" if item.presente else "")
+        d.c.drawString(col_no, d.y, "" if item.presente else "X")
+        d.c.drawString(col_recep, d.y, fecha_recep)
+        # La fecha de vencimiento solo aplica a ítems que la requieren (permiso,
+        # seguro, revisión técnica); el comprador la pregunta.
+        venc = item.fecha_vencimiento.strftime("%d-%m-%y") if item.fecha_vencimiento else ("—" if item.item.requiere_vencimiento else "")
+        d.c.drawString(col_venc, d.y, venc)
+        d.c.drawString(col_obs, d.y, (item.observacion or "")[:24])
         d.y -= 12
 
     d.section("OBSERVACIONES")
     d.y -= 2
     d.c.setFont("Helvetica", 8)
     d.c.setFillColor(black)
-    d.c.drawString(MARGIN + 6, d.y, "-")
+    texto_obs = (a.observaciones or "").strip() or "-"
+    d.y = _wrap(d.c, texto_obs, MARGIN + 6, d.y, d.w - 2 * MARGIN - 12, size=8, leading=10)
     d.y -= 6
 
+    # Ejecutivo responsable: el vendedor nominado (venta derivada) o el captador.
+    ejecutivo = a.vendedor if a.vendedor else a.captador
     d.firmas([
-        ("RECEPCIÓN A CARGO DE", a.captador.nombre),
+        ("RECEPCIÓN A CARGO DE", ejecutivo.nombre),
         ("FIRMA CLIENTE", a.cliente.nombre),
         ("HUELLA", a.cliente.rut),
     ])
@@ -305,9 +317,12 @@ def _page_orden(d: _Doc) -> None:
         d.y -= 4
 
     razon_rut = d.t.rut if d.t and d.t.rut else "-"
+    # El ejecutivo que gestiona la venta: el vendedor nominado si la venta se
+    # deriva a otra sucursal, o el captador si la venta es propia.
+    ejecutivo = a.vendedor if a.vendedor else a.captador
     d.firmas([
         ("FIRMA MANDANTE", f"{a.cliente.nombre}  {a.cliente.rut}"),
-        ("FIRMA EJECUTIVO", a.captador.rut or a.captador.nombre),
+        ("FIRMA EJECUTIVO", ejecutivo.rut or ejecutivo.nombre),
         ("FIRMA MANDATARIO", f"{razon}  {razon_rut}"),
     ])
     d.c.showPage()

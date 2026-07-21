@@ -3,13 +3,23 @@
 ### Requirement: Definición de la sucursal de venta en el acta
 El sistema SHALL registrar en cada **acta de recepción** una `sucursal_venta_id` (FK a `sucursales` del mismo tenant) además de la `sucursal_id` de origen/captación. Al levantar el acta (`POST /api/v1/actas`), el captador SHALL indicar la sucursal de venta: si coincide con la de origen la venta es propia; si difiere, el acta queda **derivada**. La `sucursal_venta_id` SHALL ser obligatoria y pertenecer al tenant efectivo. La derivación SHALL ser una propiedad de cada recepción: un mismo vehículo puede derivarse en una recepción y no en la siguiente.
 
+Al derivar, el captador SHALL nominar el vendedor específico de la sucursal de venta que tomará el negocio: `vendedor_user_id` es obligatorio y el usuario nominado SHALL ser un `Sales` activo del tenant que pertenece a la `sucursal_venta_id`. En venta propia el vendedor nominado es opcional (el ejecutivo es el captador).
+
 #### Scenario: Venta propia (misma sucursal)
 - **WHEN** un ejecutivo levanta un acta con `sucursal_venta_id` igual a la sucursal de origen
 - **THEN** el acta se crea con ambas sucursales iguales y `derivado = false`
 
-#### Scenario: Derivación a otra sucursal
-- **WHEN** un ejecutivo de Rancagua levanta un acta indicando sucursal de venta Santiago
-- **THEN** el acta se crea con `sucursal_id` = Rancagua, `sucursal_venta_id` = Santiago y `derivado = true`, sin asignar vendedor nominal
+#### Scenario: Derivación a otra sucursal con vendedor nominado
+- **WHEN** un ejecutivo de Rancagua levanta un acta indicando sucursal de venta Santiago y nomina a un vendedor de Santiago
+- **THEN** el acta se crea con `sucursal_id` = Rancagua, `sucursal_venta_id` = Santiago, `derivado = true` y el vendedor nominado asignado
+
+#### Scenario: Derivación sin vendedor nominado
+- **WHEN** un ejecutivo deriva la venta a otra sucursal pero no indica el vendedor
+- **THEN** el sistema responde `400`
+
+#### Scenario: Vendedor nominado de la sucursal equivocada
+- **WHEN** al derivar a Santiago se nomina un vendedor cuya sucursal es Rancagua
+- **THEN** el sistema responde `400`
 
 #### Scenario: Sucursal de venta de otro tenant
 - **WHEN** se envía una `sucursal_venta_id` que no pertenece al tenant efectivo

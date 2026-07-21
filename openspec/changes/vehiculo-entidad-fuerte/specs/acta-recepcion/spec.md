@@ -129,11 +129,19 @@ El backoffice SHALL ofrecer en `/actas` una grilla que lista por defecto las act
 ## MODIFIED Requirements
 
 ### Requirement: Levantar el acta de recepción
-El sistema SHALL exponer `POST /api/v1/actas` que, en una sola operación, registra al cliente (reutilizando por RUT dentro del tenant), obtiene o crea el vehículo por PPU dentro del tenant, crea el acta en estado `RECEPCIONADO` asociando cliente y vehículo, guarda el checklist y la orden de venta, y registra como captador al usuario autenticado. SHALL estar restringido a `Sales`/`Management`/`TenantAdmin` y scopeado al tenant efectivo.
+El sistema SHALL exponer `POST /api/v1/actas` que, en una sola operación, registra al cliente (reutilizando por RUT dentro del tenant), obtiene o crea el vehículo por PPU dentro del tenant, crea el acta en estado `RECEPCIONADO` asociando cliente y vehículo, guarda el checklist, la orden de venta y las observaciones, y registra como captador al usuario autenticado. La sucursal de recepción SHALL ser opcional en el cuerpo: si se omite, se usa la sucursal del usuario autenticado, y SHALL responder `400` si el usuario no tiene sucursal y no la envía. SHALL estar restringido a `Sales`/`Management`/`TenantAdmin` y scopeado al tenant efectivo.
 
 #### Scenario: Creación exitosa del acta
 - **WHEN** un ejecutivo `Sales` envía un acta válida (cliente, vehículo, checklist, orden de venta)
 - **THEN** el sistema responde `201`, el acta queda en `RECEPCIONADO`, asociada al tenant efectivo y con el captador igual al usuario autenticado
+
+#### Scenario: Sucursal de recepción por defecto
+- **WHEN** un ejecutivo con sucursal asignada levanta un acta sin enviar `sucursal_id`
+- **THEN** el acta se crea con la sucursal del ejecutivo como sucursal de origen
+
+#### Scenario: Usuario sin sucursal debe indicarla
+- **WHEN** un usuario sin sucursal asignada levanta un acta sin enviar `sucursal_id`
+- **THEN** el sistema responde `400`
 
 #### Scenario: Vehículo con acta vigente
 - **WHEN** se levanta un acta con una PPU que ya tiene un acta activa en el mismo tenant
@@ -190,7 +198,23 @@ El sistema SHALL exponer `GET /api/v1/actas/{id}/documento-firma` para descargar
 
 #### Scenario: Contenido mínimo obligatorio del PDF
 - **WHEN** se genera el documento
-- **THEN** incluye, en secciones separadas: datos del cliente, datos del vehículo, condiciones de orden de venta (precio pactado, vigencia, abono), checklist de recepción y espacios de firma de cliente/ejecutivo
+- **THEN** incluye, en secciones separadas: datos del cliente, datos del vehículo, condiciones de orden de venta (precio pactado, vigencia, abono), checklist de recepción, observaciones del acta y espacios de firma de cliente/ejecutivo
+
+#### Scenario: El ejecutivo del documento es el vendedor nominado
+- **WHEN** el acta está derivada a otra sucursal con un vendedor nominado y se genera el documento
+- **THEN** la "Firma Ejecutivo" muestra el nombre y RUT del vendedor nominado (no del captador), y el vendedor está autorizado a descargar el documento
+
+#### Scenario: El ejecutivo del documento en venta propia
+- **WHEN** el acta no está derivada (venta propia) y se genera el documento
+- **THEN** la "Firma Ejecutivo" muestra al captador, que también es el vendedor
+
+#### Scenario: Checklist con fecha de vencimiento
+- **WHEN** un punto del checklist requiere vencimiento (permiso de circulación, seguro, revisión técnica) y se registró su fecha
+- **THEN** el checklist del PDF muestra en columnas separadas la fecha de recepción y la fecha de vencimiento de ese punto
+
+#### Scenario: Observaciones del acta en el PDF
+- **WHEN** el acta tiene un texto de observaciones
+- **THEN** el PDF lo imprime en su sección de OBSERVACIONES
 
 #### Scenario: Estándar de formato del PDF
 - **WHEN** se genera el documento
@@ -201,12 +225,35 @@ El sistema SHALL exponer `GET /api/v1/actas/{id}/documento-firma` para descargar
 - **THEN** el PDF refleja el cliente, checklist y orden de venta de esa primera recepción, no los de la segunda
 
 ### Requirement: Backoffice — formulario de acta y captaciones
-El backoffice SHALL ofrecer en `/actas/nueva` un formulario que captura cliente, vehículo, checklist de 12 puntos y orden de venta, y en `/captaciones` una lista de las actas del ejecutivo con la acción de aceptar términos. Al ingresar una PPU ya conocida en el tenant, el formulario SHALL precargar los datos del vehículo y advertir que se trata de un reingreso.
+El backoffice SHALL ofrecer en `/actas/nueva` un formulario que captura cliente, vehículo, checklist de 12 puntos, orden de venta y observaciones, y en `/captaciones` una lista de las actas del ejecutivo con la acción de aceptar términos. La sucursal de recepción NO SHALL pedirse: se asume la del usuario autenticado, y solo se ofrece elegirla si el usuario no tiene una asignada. Los campos de cliente (por RUT) y de vehículo (por PPU) SHALL autocompletarse a medida que se escribe.
 
 #### Scenario: Crear un acta desde la UI
 - **WHEN** un ejecutivo completa y envía el formulario de "Nueva Acta de Recepción"
-- **THEN** el acta aparece en `/actas` en estado `RECEPCIONADO`
+- **THEN** el acta aparece en `/actas` en estado `RECEPCIONADO`, en la sucursal del ejecutivo
 
-#### Scenario: Reingreso detectado en el formulario
-- **WHEN** el ejecutivo ingresa una PPU ya registrada en el tenant sin acta vigente
-- **THEN** el formulario precarga marca, modelo, año, motor y chasis, y advierte que el auto ya fue corretado antes
+#### Scenario: Sucursal de recepción implícita
+- **WHEN** un ejecutivo con sucursal asignada abre el formulario
+- **THEN** no se le pide la sucursal de recepción y el acta se crea en la suya
+
+#### Scenario: Autocompletar cliente por RUT
+- **WHEN** el ejecutivo escribe un RUT ya registrado en el tenant
+- **THEN** el formulario carga automáticamente nombre, correo, teléfono, domicilio y comuna del cliente
+
+#### Scenario: Autocompletar vehículo por PPU (reingreso)
+- **WHEN** el ejecutivo escribe una PPU ya registrada en el tenant sin acta vigente
+- **THEN** el formulario precarga marca, modelo, versión, año, motor, chasis y color, y advierte que el auto ya fue corretado antes
+
+#### Scenario: Reingreso con acta vigente bloqueado en la UI
+- **WHEN** la PPU escrita ya tiene un acta vigente
+- **THEN** el formulario lo advierte y bloquea el envío
+
+### Requirement: Backoffice — edición completa del acta
+El backoffice SHALL permitir editar un acta en `RECEPCIONADO` de forma completa: datos del cliente, ficha del vehículo (marca, modelo, versión, patente, año, motor, chasis, color), orden de venta, vendedor nominado, observaciones y el checklist de 12 puntos (marcar/desmarcar cada punto, su estado y su fecha de vencimiento). Los cambios de la ficha del vehículo SHALL enviarse a `PATCH /api/v1/vehiculos/{id}` y el resto a `PATCH /api/v1/actas/{id}`.
+
+#### Scenario: Actualizar el checklist tras recibir menos accesorios
+- **WHEN** el cliente entregó menos accesorios de los registrados y el ejecutivo desmarca esos puntos y guarda
+- **THEN** el acta conserva el checklist actualizado
+
+#### Scenario: Editar la ficha del auto desde el acta
+- **WHEN** el ejecutivo corrige la versión o la patente en la edición del acta
+- **THEN** el cambio se aplica a la ficha del vehículo y queda reflejado en el acta
