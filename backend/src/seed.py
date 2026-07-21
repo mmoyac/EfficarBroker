@@ -233,9 +233,9 @@ DEMO_USER = ("Admin Demo", "admin@demo.efficarbroker.com", None, "TenantAdmin")
 TENANT_USERS = [
     ("Bastian Galve", "bastian@vendemostuautomovil.com", None, "TenantAdmin", None, None),
     ("Josefa Cuevas", "josefa@vendemostuautomovil.com", "964015403", "Management", None, None),
-    ("Araneth Díaz", "araneth@vendemostuautomovil.com", "950430735", "Sales", "Sucursal Santiago", "26.441.328-1"),
+    ("Araneth Díaz", "araneth@vendemostuautomovil.com", "950430735", "Sales", "Sucursal Rancagua", "26.441.328-1"),
     ("Juan Guillermo Rojas", "juanguillermo@vendemostuautomovil.com", "932334519", "Sales", "Sucursal Santiago", "18.234.567-8"),
-    ("Cristian Farías", "cristian@vendemostuautomovil.com", "957013066", "Sales", "Sucursal Rancagua", "17.345.678-9"),
+    ("Cristian Farías", "cristian@vendemostuautomovil.com", "957013066", "Sales", "Sucursal Santiago", "17.345.678-9"),
     ("Gabriel Hernández", "gabriel@vendemostuautomovil.com", "983463621", "Sales", "Sucursal Rancagua", "19.456.789-0"),
     ("Alejandro Debezzi", "alejandro@vendemostuautomovil.com", "956300358", "Marketing", "Sucursal Santiago", None),
     ("Matteo Galve", "matteo@vendemostuautomovil.com", "930775979", "AdministrativeAssistant", "Sucursal Santiago", None),
@@ -441,8 +441,9 @@ def seed() -> None:
 
         # --- Operacional demo: vehículo DERIVADO (captado en Rancagua, venta en Santiago) ---
         # Valida el flujo de derivación end-to-end: sucursal_id != sucursal_venta_id.
+        # El captador es de Rancagua (Araneth); el vendedor nominado, de Santiago.
         captador = db.scalar(
-            select(User).where(User.email == "cristian@vendemostuautomovil.com")
+            select(User).where(User.email == "araneth@vendemostuautomovil.com")
         )
         version_demo = db.scalar(
             select(VehiculoVersion).join(VehiculoModelo).join(VehiculoMarca)
@@ -488,7 +489,7 @@ def seed() -> None:
         # --- Operacional demo: REINGRESO (mismo auto, dos dueños) ---
         # Un vehículo con un acta ya VENDIDA y otra activa: cubre el caso que el
         # modelo viejo hacía imposible.
-        cap_stgo = db.scalar(select(User).where(User.email == "araneth@vendemostuautomovil.com"))
+        cap_stgo = db.scalar(select(User).where(User.email == "cristian@vendemostuautomovil.com"))
         version_ri = db.scalar(
             select(VehiculoVersion).join(VehiculoModelo).join(VehiculoMarca)
             .where(VehiculoModelo.nombre == "Corolla")
