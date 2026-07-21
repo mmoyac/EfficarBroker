@@ -57,13 +57,13 @@
 
 ## 6. Pruebas
 
-- [ ] 6.1 Reingreso: acta → venta → segunda acta del mismo vehículo con otro cliente; ambas coexisten con checklist e historial propios
-- [ ] 6.2 Segunda acta con acta vigente responde `409`
-- [ ] 6.3 Concurrencia: dos creaciones simultáneas para la misma PPU dejan una sola acta activa
-- [ ] 6.4 Aislamiento entre tenants en `/actas`, `/vehiculos/{id}/actas` y `/abonos/resumen`
-- [ ] 6.5 Abono: `NO_DEVENGADO` → `APLICADO_COMISION` al vender, `→ RETENIDO` al cerrar sin venta, `409` en transición inválida
-- [ ] 6.6 Abono mayor que la comisión deja saldo cero sin generar monto a favor del cliente
-- [ ] 6.7 `/abonos/resumen` separa comprometido de ganado y responde `403` a `Sales`
-- [ ] 6.8 El PDF de un acta histórica refleja el cliente y checklist de esa recepción
-- [ ] 6.9 Derivación y comisión cruzada aisladas por acta
+- [x] 6.1 Reingreso: acta → venta → segunda acta del mismo vehículo con otro cliente; ambas coexisten con checklist e historial propios
+- [x] 6.2 Segunda acta con acta vigente responde `409`
+- [x] 6.3 Concurrencia: dos creaciones simultáneas para la misma PPU dejan una sola acta activa
+- [x] 6.4 Aislamiento entre tenants en `/actas`, `/vehiculos/{id}/actas` y `/abonos/resumen`
+- [x] 6.5 Abono: `NO_DEVENGADO` → `APLICADO_COMISION` al vender, `→ RETENIDO` al cerrar sin venta, `409` en transición inválida
+- [x] 6.6 Abono mayor que la comisión deja saldo cero sin generar monto a favor del cliente
+- [x] 6.7 `/abonos/resumen` separa comprometido de ganado y responde `403` a `Sales`
+- [x] 6.8 El PDF de un acta histórica refleja el cliente y checklist de esa recepción
+- [x] 6.9 Derivación y comisión cruzada aisladas por acta
 - [x] 6.10 Migración `upgrade` + `downgrade` sobre la base de seed sin pérdida de datos
