@@ -59,10 +59,11 @@ CIUDADES = ["Santiago", "Rancagua"]
 
 ESTADOS_VEHICULO = [
     ("PROSPECTO", "Prospecto", 1),
-    ("RECEPCIONADO", "Recepcionado", 2),
-    ("CONTRATO_ACEPTADO", "Contrato Aceptado", 3),
-    ("PUBLICADO", "Publicado", 4),
-    ("VENDIDO", "Vendido", 5),
+    ("CAPTADO", "Captado", 2),          # captación online: cliente + auto, sin checklist ni fotos
+    ("RECEPCIONADO", "Recepcionado", 3),  # auto físicamente recibido + contrato firmado
+    ("CONTRATO_ACEPTADO", "Contrato Aceptado", 4),  # legado; el flujo nuevo no lo usa
+    ("PUBLICADO", "Publicado", 5),
+    ("VENDIDO", "Vendido", 6),
 ]
 
 # Menú del backoffice (SEMILLA_OPENSPEC Módulo 7). Estructura:

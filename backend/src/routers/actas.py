@@ -41,6 +41,7 @@ from src.schemas.acta import (
     ActaOut,
     ActaUpdateIn,
     CerrarSinVentaIn,
+    RecepcionarIn,
     RegistrarVentaIn,
     VehiculoFichaOut,
 )
@@ -54,10 +55,16 @@ router = APIRouter(prefix="/actas", tags=["actas"])
 # El acta la levantan ejecutivos y gestión (SuperAdmin pasa por transversalidad).
 _guard = Depends(require_roles("Sales", "Management", "TenantAdmin"))
 
+# Flujo: CAPTADO (captación online) -> RECEPCIONADO (auto presente + contrato
+# firmado) -> VENDIDO. Recepcionar implica la firma del contrato.
+CAPTADO = "CAPTADO"
 RECEPCIONADO = "RECEPCIONADO"
-CONTRATO_ACEPTADO = "CONTRATO_ACEPTADO"
+CONTRATO_ACEPTADO = "CONTRATO_ACEPTADO"  # legado; el flujo nuevo no lo usa
 PUBLICADO = "PUBLICADO"
 VENDIDO = "VENDIDO"
+# Estados desde los que un acta es vendible / imprimible.
+VENDIBLE = (RECEPCIONADO, CONTRATO_ACEPTADO, PUBLICADO)
+EDITABLE = (CAPTADO, RECEPCIONADO)
 
 NO_DEVENGADO = "NO_DEVENGADO"
 APLICADO_COMISION = "APLICADO_COMISION"
@@ -320,7 +327,7 @@ def crear_acta(
             if body.color_id:
                 vehiculo.color_id = body.color_id
 
-        estado_recep = _estado(db, RECEPCIONADO)
+        estado_recep = _estado(db, CAPTADO)
         acta = ActaRecepcion(
             tenant_id=tenant_id,
             vehiculo_id=vehiculo.id,
@@ -364,7 +371,7 @@ def crear_acta(
         db, tenant_id=tenant_id, user_id=current.id,
         ip=request.client.host if request.client else None,
         entidad="acta", entidad_id=acta.id,
-        estado_anterior=None, estado_nuevo=RECEPCIONADO,
+        estado_anterior=None, estado_nuevo=CAPTADO,
         payload={"ppu": vehiculo.ppu, "cliente_rut": cliente.rut, "vehiculo_id": vehiculo.id},
     )  # audit_service hace commit
     db.refresh(acta)
@@ -417,30 +424,74 @@ def obtener_acta(
 # ---------------------------------------------------------------- transiciones
 
 
-@router.post("/{acta_id}/aceptar-terminos", response_model=ActaDetailOut, dependencies=[_guard])
-def aceptar_terminos(
+@router.post("/{acta_id}/recepcionar", response_model=ActaDetailOut, dependencies=[_guard])
+def recepcionar(
     acta_id: int,
+    body: RecepcionarIn,
     request: Request,
     db: Session = Depends(get_db),
     tenant_id: int = Depends(get_effective_tenant_id),
     current: User = Depends(get_current_user),
 ) -> ActaDetailOut:
+    """CAPTADO -> RECEPCIONADO: el auto llega a la sucursal.
+
+    Recién aquí se registran los datos físicos (N° motor/chasis, km, color) y el
+    checklist de 12 puntos, y se da por firmado el contrato (el documento de
+    firma queda disponible desde este punto).
+    """
     a = _scoped(db, acta_id, tenant_id)
-    if a.estado.code != RECEPCIONADO:
+    if a.estado.code != CAPTADO:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"El acta no está en RECEPCIONADO (estado actual: {a.estado.code})",
+            detail=f"Solo se recepciona un acta CAPTADA (estado actual: {a.estado.code})",
         )
+
+    _validate_catalog(db, Color, body.color_id, "Color inválido")
+
+    # Datos físicos del auto (inspección al recepcionar).
+    v = a.vehiculo
+    if body.n_motor is not None:
+        v.n_motor = body.n_motor
+    if body.n_chasis is not None:
+        v.n_chasis = body.n_chasis
+    if body.color_id is not None:
+        v.color_id = body.color_id
+    if body.km_ingreso is not None:
+        a.km_ingreso = body.km_ingreso
+
+    # Checklist de recepción (upsert por ítem).
+    if body.checklist is not None:
+        valid_items = {i.id for i in db.scalars(select(ChecklistItem)).all()}
+        valid_estados = {e.id for e in db.scalars(select(EstadoChecklist)).all()}
+        existentes = {c.checklist_item_id: c for c in a.checklist}
+        for entry in body.checklist:
+            if entry.checklist_item_id not in valid_items:
+                continue
+            if entry.estado_checklist_id is not None and entry.estado_checklist_id not in valid_estados:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Estado de checklist inválido")
+            row = existentes.get(entry.checklist_item_id)
+            if row is None:
+                db.add(ActaChecklist(
+                    acta=a, checklist_item_id=entry.checklist_item_id,
+                    presente=entry.presente, estado_checklist_id=entry.estado_checklist_id,
+                    fecha_vencimiento=entry.fecha_vencimiento, observacion=entry.observacion,
+                ))
+            else:
+                row.presente = entry.presente
+                row.estado_checklist_id = entry.estado_checklist_id
+                row.fecha_vencimiento = entry.fecha_vencimiento
+                row.observacion = entry.observacion
+
     estado_ant = a.estado.code
-    a.estado_id = _estado(db, CONTRATO_ACEPTADO).id
+    a.estado_id = _estado(db, RECEPCIONADO).id
     db.flush()
     _registrar_historial(db, a, current.id)
     audit_service.log(
         db, tenant_id=tenant_id, user_id=current.id,
         ip=request.client.host if request.client else None,
         entidad="acta", entidad_id=a.id,
-        estado_anterior=estado_ant, estado_nuevo=CONTRATO_ACEPTADO,
-        payload={"accion": "aceptar_terminos_manual"},
+        estado_anterior=estado_ant, estado_nuevo=RECEPCIONADO,
+        payload={"accion": "recepcionar", "ppu": v.ppu},
     )
     db.refresh(a)
     return _to_detail(a)
@@ -458,10 +509,10 @@ def registrar_venta(
     a = _scoped(db, acta_id, tenant_id)
     if a.cerrada:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El acta ya está cerrada")
-    if a.estado.code not in (CONTRATO_ACEPTADO, PUBLICADO):
+    if a.estado.code not in VENDIBLE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"El acta no está en condición de venta (estado actual: {a.estado.code})",
+            detail=f"El acta no está en condición de venta (estado actual: {a.estado.code}). Debe estar recepcionada.",
         )
 
     vendedor = db.get(User, body.vendedor_user_id)
@@ -573,10 +624,10 @@ def editar_acta(
     current: User = Depends(get_current_user),
 ) -> ActaDetailOut:
     a = _scoped(db, acta_id, tenant_id)
-    if a.estado.code != RECEPCIONADO:
+    if a.estado.code not in EDITABLE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Solo se puede editar en RECEPCIONADO (estado actual: {a.estado.code})",
+            detail=f"Solo se puede editar mientras el acta no esté vendida (estado actual: {a.estado.code})",
         )
     can_edit = (
         current.role.code in _ROLES_TRANSVERSALES
@@ -672,10 +723,10 @@ def eliminar_acta(
     current: User = Depends(get_current_user),
 ) -> None:
     a = _scoped(db, acta_id, tenant_id)
-    if a.estado.code != RECEPCIONADO:
+    if a.estado.code not in EDITABLE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Solo se puede eliminar en RECEPCIONADO (estado actual: {a.estado.code})",
+            detail=f"Solo se puede eliminar mientras el acta no esté vendida (estado actual: {a.estado.code})",
         )
     can_delete = (
         current.role.code in _ROLES_TRANSVERSALES
@@ -709,10 +760,10 @@ def documento_firma(
     current: User = Depends(get_current_user),
 ) -> StreamingResponse:
     a = _scoped(db, acta_id, tenant_id)
-    if a.estado.code not in (CONTRATO_ACEPTADO, PUBLICADO, VENDIDO):
+    if a.estado.code == CAPTADO:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Documento disponible desde CONTRATO_ACEPTADO (estado actual: {a.estado.code})",
+            detail="El documento de firma está disponible desde la recepción del auto.",
         )
 
     can_view = (

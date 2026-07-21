@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  aceptarTerminos,
   cerrarSinVenta,
   deleteActa,
   downloadDocumentoFirma,
@@ -12,9 +11,11 @@ import {
 import { listEquipoVentas } from "@/services/vehiculos";
 import { listMotivosCierre } from "@/services/catalogos";
 import EditarActaModal from "@/pages/EditarActaModal";
+import RecepcionarModal from "@/pages/RecepcionarModal";
 import type { Acta } from "@/types";
 
 const ESTADO_STYLES: Record<string, string> = {
+  CAPTADO: "bg-sky-100 text-sky-700",
   RECEPCIONADO: "bg-blue-100 text-blue-700",
   CONTRATO_ACEPTADO: "bg-amber-100 text-amber-700",
   PUBLICADO: "bg-green-100 text-green-700",
@@ -22,8 +23,9 @@ const ESTADO_STYLES: Record<string, string> = {
   PROSPECTO: "bg-gray-100 text-gray-600",
 };
 
-const VENDIBLE = new Set(["CONTRATO_ACEPTADO", "PUBLICADO"]);
-const DOC_FIRMA = new Set(["CONTRATO_ACEPTADO", "PUBLICADO", "VENDIDO"]);
+// Vendible/imprimible desde RECEPCIONADO (el auto ya llegó y el contrato está firmado).
+const VENDIBLE = new Set(["RECEPCIONADO", "CONTRATO_ACEPTADO", "PUBLICADO"]);
+const DOC_FIRMA = new Set(["RECEPCIONADO", "CONTRATO_ACEPTADO", "PUBLICADO", "VENDIDO"]);
 
 export default function MisCaptaciones() {
   const qc = useQueryClient();
@@ -35,13 +37,8 @@ export default function MisCaptaciones() {
   const [ventaFor, setVentaFor] = useState<Acta | null>(null);
   const [editFor, setEditFor] = useState<Acta | null>(null);
   const [cerrarFor, setCerrarFor] = useState<Acta | null>(null);
+  const [recepcionarFor, setRecepcionarFor] = useState<Acta | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: ["actas"] });
-
-  const aceptarMut = useMutation({
-    mutationFn: (a: Acta) => aceptarTerminos(a.id),
-    onSuccess: invalidate,
-    onError: (e: unknown) => alert(extractError(e)),
-  });
 
   const eliminarMut = useMutation({
     mutationFn: (a: Acta) => deleteActa(a.id),
@@ -128,21 +125,22 @@ export default function MisCaptaciones() {
                       <Link to={`/actas/${a.id}`} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface">
                         Ver
                       </Link>
-                      {a.estado_code === "RECEPCIONADO" && !a.cerrada && (
+                      {a.estado_code === "CAPTADO" && !a.cerrada && (
+                        <button
+                          onClick={() => setRecepcionarFor(a)}
+                          className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600"
+                        >
+                          Recepcionar
+                        </button>
+                      )}
+                      {(a.estado_code === "CAPTADO" || a.estado_code === "RECEPCIONADO") && !a.cerrada && (
                         <>
                           <button
                             onClick={() => setEditFor(a)}
-                            disabled={aceptarMut.isPending || eliminarMut.isPending}
+                            disabled={eliminarMut.isPending}
                             className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
                           >
                             Editar
-                          </button>
-                          <button
-                            onClick={() => aceptarMut.mutate(a)}
-                            disabled={aceptarMut.isPending || eliminarMut.isPending}
-                            className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
-                          >
-                            Aceptar términos
                           </button>
                           <button
                             onClick={() => setCerrarFor(a)}
@@ -156,7 +154,7 @@ export default function MisCaptaciones() {
                                 eliminarMut.mutate(a);
                               }
                             }}
-                            disabled={aceptarMut.isPending || eliminarMut.isPending}
+                            disabled={eliminarMut.isPending}
                             className="rounded border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50 disabled:opacity-60"
                           >
                             Eliminar
@@ -197,6 +195,9 @@ export default function MisCaptaciones() {
       )}
       {cerrarFor && (
         <CerrarSinVentaModal acta={cerrarFor} onClose={() => setCerrarFor(null)} onDone={() => { setCerrarFor(null); invalidate(); }} />
+      )}
+      {recepcionarFor && (
+        <RecepcionarModal acta={recepcionarFor} onClose={() => setRecepcionarFor(null)} onDone={() => { setRecepcionarFor(null); invalidate(); }} />
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import { listEquipoVentas } from "@/services/vehiculos";
 import type { Acta } from "@/types";
 
 const ESTADO_STYLES: Record<string, string> = {
+  CAPTADO: "bg-sky-100 text-sky-700",
   RECEPCIONADO: "bg-blue-100 text-blue-700",
   CONTRATO_ACEPTADO: "bg-amber-100 text-amber-700",
   PUBLICADO: "bg-green-100 text-green-700",

@@ -5,6 +5,7 @@ import type {
   ActaDetail,
   ActaUpdateInput,
   AbonoResumen,
+  ChecklistEntryInput,
 } from "@/types";
 
 export async function createActa(input: ActaCreateInput): Promise<ActaDetail> {
@@ -31,8 +32,16 @@ export async function deleteActa(id: number): Promise<void> {
   await api.delete(`/actas/${id}`);
 }
 
-export async function aceptarTerminos(id: number): Promise<ActaDetail> {
-  const { data } = await api.post<ActaDetail>(`/actas/${id}/aceptar-terminos`, {});
+export interface RecepcionarInput {
+  n_motor?: string | null;
+  n_chasis?: string | null;
+  color_id?: number | null;
+  km_ingreso?: number | null;
+  checklist?: ChecklistEntryInput[];
+}
+
+export async function recepcionar(id: number, input: RecepcionarInput): Promise<ActaDetail> {
+  const { data } = await api.post<ActaDetail>(`/actas/${id}/recepcionar`, input);
   return data;
 }
 

@@ -150,6 +150,20 @@ class ActaUpdateIn(BaseModel):
     checklist: list[ChecklistEntryIn] | None = None
 
 
+class RecepcionarIn(BaseModel):
+    """Datos que se completan al recepcionar el auto (CAPTADO -> RECEPCIONADO).
+
+    Todo lo físico del vehículo: N° motor/chasis, km, color y el checklist de
+    12 puntos. Todo opcional salvo el checklist, que puede venir parcial.
+    """
+
+    n_motor: str | None = Field(default=None, max_length=60)
+    n_chasis: str | None = Field(default=None, max_length=60)
+    color_id: int | None = None
+    km_ingreso: int | None = Field(default=None, ge=0)
+    checklist: list[ChecklistEntryIn] | None = None
+
+
 class RegistrarVentaIn(BaseModel):
     model_config = ConfigDict(strict=True)
 

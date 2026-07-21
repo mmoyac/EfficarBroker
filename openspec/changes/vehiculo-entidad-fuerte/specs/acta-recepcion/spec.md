@@ -26,7 +26,7 @@ El sistema SHALL admitir como máximo un acta activa por vehículo, entendiendo 
 
 #### Scenario: Reingreso de un auto ya cerrado
 - **WHEN** se levanta un acta para una PPU cuyo acta anterior está cerrada
-- **THEN** el sistema reutiliza la ficha del vehículo, crea un acta nueva en `RECEPCIONADO` y responde `201`
+- **THEN** el sistema reutiliza la ficha del vehículo, crea un acta nueva en `CAPTADO` y responde `201`
 
 #### Scenario: Reingreso de un auto con acta vigente
 - **WHEN** se levanta un acta para una PPU que ya tiene un acta activa en el tenant
@@ -128,12 +128,12 @@ El backoffice SHALL ofrecer en `/actas` una grilla que lista por defecto las act
 
 ## MODIFIED Requirements
 
-### Requirement: Levantar el acta de recepción
-El sistema SHALL exponer `POST /api/v1/actas` que, en una sola operación, registra al cliente (reutilizando por RUT dentro del tenant), obtiene o crea el vehículo por PPU dentro del tenant, crea el acta en estado `RECEPCIONADO` asociando cliente y vehículo, guarda el checklist, la orden de venta y las observaciones, y registra como captador al usuario autenticado. La sucursal de recepción SHALL ser opcional en el cuerpo: si se omite, se usa la sucursal del usuario autenticado, y SHALL responder `400` si el usuario no tiene sucursal y no la envía. SHALL estar restringido a `Sales`/`Management`/`TenantAdmin` y scopeado al tenant efectivo.
+### Requirement: Captar (crear el acta)
+La captación es un proceso remoto (WhatsApp/teléfono) donde se recogen datos del cliente y del vehículo, sin el auto presente. El sistema SHALL exponer `POST /api/v1/actas` que, en una sola operación, registra al cliente (reutilizando por RUT dentro del tenant), obtiene o crea el vehículo por PPU dentro del tenant, crea el acta en estado **`CAPTADO`** asociando cliente y vehículo, guarda la orden de venta y las observaciones, y registra como captador al usuario autenticado. El checklist y los datos físicos del auto (N° motor/chasis, km) NO SHALL exigirse en la captación: se completan al recepcionar. La sucursal de recepción SHALL ser opcional en el cuerpo: si se omite, se usa la sucursal del usuario autenticado, y SHALL responder `400` si el usuario no tiene sucursal y no la envía. SHALL estar restringido a `Sales`/`Management`/`TenantAdmin` y scopeado al tenant efectivo.
 
-#### Scenario: Creación exitosa del acta
-- **WHEN** un ejecutivo `Sales` envía un acta válida (cliente, vehículo, checklist, orden de venta)
-- **THEN** el sistema responde `201`, el acta queda en `RECEPCIONADO`, asociada al tenant efectivo y con el captador igual al usuario autenticado
+#### Scenario: Captación exitosa
+- **WHEN** un ejecutivo `Sales` envía una captación válida (cliente, vehículo, orden de venta) sin checklist
+- **THEN** el sistema responde `201`, el acta queda en `CAPTADO`, asociada al tenant efectivo y con el captador igual al usuario autenticado
 
 #### Scenario: Sucursal de recepción por defecto
 - **WHEN** un ejecutivo con sucursal asignada levanta un acta sin enviar `sucursal_id`
@@ -155,9 +155,9 @@ El sistema SHALL exponer `POST /api/v1/actas` que, en una sola operación, regis
 - **WHEN** se levanta un acta con un RUT ya registrado en el tenant
 - **THEN** el sistema reutiliza ese cliente en lugar de duplicarlo
 
-#### Scenario: Auditoría de la recepción
+#### Scenario: Auditoría de la captación
 - **WHEN** se crea el acta
-- **THEN** se inserta un registro en `logs_auditoria` con `estado_nuevo = RECEPCIONADO`, el usuario y el tenant
+- **THEN** se inserta un registro en `logs_auditoria` con `estado_nuevo = CAPTADO`, el usuario y el tenant
 
 #### Scenario: Rol no autorizado
 - **WHEN** un usuario con rol `Client` intenta crear un acta
@@ -174,26 +174,30 @@ El sistema SHALL exponer `GET /api/v1/actas` (lista scopeada al tenant efectivo,
 - **WHEN** se solicita por id un acta que pertenece a otro tenant
 - **THEN** el sistema responde `404`
 
-### Requirement: Aceptación manual de términos
-El sistema SHALL exponer `POST /api/v1/actas/{id}/aceptar-terminos` que transita el acta de `RECEPCIONADO` a `CONTRATO_ACEPTADO` y registra auditoría. SHALL rechazar la transición si el estado actual no es `RECEPCIONADO`.
+### Requirement: Recepcionar el auto
+Recepcionar es cuando el cliente llega con el auto a la sucursal: recién ahí se registran los datos físicos y el checklist, y se da por firmado el contrato. El sistema SHALL exponer `POST /api/v1/actas/{id}/recepcionar` que transita el acta de **`CAPTADO`** a **`RECEPCIONADO`**, aceptando N° motor, N° chasis, color y km (que actualizan la ficha del vehículo y el acta) y el checklist de 12 puntos (upsert por punto), y registra auditoría. NO SHALL existir un paso `CONTRATO_ACEPTADO` aparte: recepcionar implica el contrato firmado. SHALL rechazar la transición si el acta no está en `CAPTADO`.
 
-#### Scenario: Transición válida
-- **WHEN** se aceptan los términos de un acta en estado `RECEPCIONADO`
-- **THEN** el acta pasa a `CONTRATO_ACEPTADO` y se registra en auditoría el cambio de estado
+#### Scenario: Recepción exitosa
+- **WHEN** se recepciona un acta en estado `CAPTADO` con datos físicos y checklist
+- **THEN** el acta pasa a `RECEPCIONADO`, la ficha del vehículo queda con el N° motor/chasis/color, el km del acta se actualiza, el checklist queda guardado y se registra el cambio en auditoría
 
-#### Scenario: Transición inválida
-- **WHEN** se intenta aceptar términos de un acta que no está en `RECEPCIONADO`
+#### Scenario: Checklist se registra recién en la recepción
+- **WHEN** un acta recién captada (sin checklist) se recepciona enviando el checklist
+- **THEN** el checklist de 12 puntos queda asociado a esa recepción
+
+#### Scenario: Recepción inválida
+- **WHEN** se intenta recepcionar un acta que no está en `CAPTADO`
 - **THEN** el sistema responde `409`
 
 ### Requirement: Documento PDF de firma (Acta + Orden de Venta)
-El sistema SHALL exponer `GET /api/v1/actas/{id}/documento-firma` para descargar un PDF imprimible cuando el acta esté al menos en `CONTRATO_ACEPTADO`. El documento SHALL consolidar Acta de Recepción y Orden de Venta para firma presencial del cliente, tomando los datos del acta y de su vehículo asociado.
+El sistema SHALL exponer `GET /api/v1/actas/{id}/documento-firma` para descargar un PDF imprimible cuando el acta esté al menos en `RECEPCIONADO` (el auto ya llegó y el contrato está firmado). El documento SHALL consolidar Acta de Recepción y Orden de Venta para firma presencial del cliente, tomando los datos del acta y de su vehículo asociado.
 
-#### Scenario: Descarga permitida desde contrato aceptado
-- **WHEN** un usuario autorizado solicita `GET /api/v1/actas/{id}/documento-firma` y el acta está en `CONTRATO_ACEPTADO` o posterior
+#### Scenario: Descarga permitida desde la recepción
+- **WHEN** un usuario autorizado solicita `GET /api/v1/actas/{id}/documento-firma` y el acta está en `RECEPCIONADO` o posterior
 - **THEN** el sistema responde `200` con `Content-Type: application/pdf`
 
-#### Scenario: Descarga bloqueada por estado
-- **WHEN** se solicita el documento para un acta en `RECEPCIONADO` o `PROSPECTO`
+#### Scenario: Descarga bloqueada en captación
+- **WHEN** se solicita el documento para un acta en `CAPTADO`
 - **THEN** el sistema responde `409`
 
 #### Scenario: Contenido mínimo obligatorio del PDF
