@@ -354,6 +354,12 @@ def downgrade() -> None:
     op.create_foreign_key("vehiculos_tipo_comision_id_fkey", "vehiculos", "tipos_comision", ["tipo_comision_id"], ["id"], ondelete="RESTRICT")
     op.create_foreign_key("vehiculos_vendedor_user_id_fkey", "vehiculos", "users", ["vendedor_user_id"], ["id"], ondelete="SET NULL")
 
+    # Restaurar los indices que las migraciones 0009/0008 esperan borrar en su
+    # propio downgrade (sus columnas fueron eliminadas por el upgrade de 0010).
+    op.create_index("ix_vehiculos_tipo_comision_id", "vehiculos", ["tipo_comision_id"])
+    op.create_index("ix_vehiculos_sucursal_venta_id", "vehiculos", ["sucursal_venta_id"])
+    op.create_index("ix_vehiculos_vendedor_user_id", "vehiculos", ["vendedor_user_id"])
+
     op.drop_index("ix_vehiculos_color_id", table_name="vehiculos")
     op.drop_constraint("fk_vehiculos_color", "vehiculos", type_="foreignkey")
     op.drop_column("vehiculos", "color_id")

@@ -44,16 +44,16 @@
 
 ## 5. Backoffice
 
-- [ ] 5.1 Servicios y tipos TypeScript del recurso `actas`
-- [ ] 5.2 Página `/actas`: grilla con PPU, vehículo, cliente, estado, fecha de recepción y precio pactado; por defecto `?mine=true`; botón "Nueva acta"
-- [ ] 5.3 Toggle "ver todas del tenant" visible solo para `Management`/`TenantAdmin`/`SuperAdmin`, que agrega la columna de captador
-- [ ] 5.4 Estado vacío con invitación a crear la primera acta
-- [ ] 5.5 `NuevaActa`: al ingresar la PPU, consultar el lookup y precargar datos del vehículo advirtiendo el reingreso; bloquear si hay acta vigente
-- [ ] 5.6 Detalle del acta con checklist, orden de venta e historial de recepciones anteriores del vehículo
-- [ ] 5.7 Adaptar `MisCaptaciones` y `/captaciones/derivadas` al contrato de actas
-- [ ] 5.8 Mostrar comisión pactada, abono descontado y saldo neto al confirmar la venta
-- [ ] 5.9 Mantenedor `/vehiculos` para `Management`: grilla buscable por PPU, detalle con atributos físicos e historial de actas, y edición con advertencia de impacto y motivo obligatorio
-- [ ] 5.10 Rutas en `App.tsx`: `/actas` (grilla), `/actas/nueva`, `/actas/:id`, `/vehiculos`, `/vehiculos/:id`
+- [x] 5.1 Servicios y tipos TypeScript del recurso `actas`
+- [x] 5.2 Página `/actas`: grilla con PPU, vehículo, cliente, estado, fecha de recepción y precio pactado; por defecto `?mine=true`; botón "Nueva acta"
+- [x] 5.3 Toggle "ver todas del tenant" visible solo para `Management`/`TenantAdmin`/`SuperAdmin`, que agrega la columna de captador
+- [x] 5.4 Estado vacío con invitación a crear la primera acta
+- [x] 5.5 `NuevaActa`: al ingresar la PPU, consultar el lookup y precargar datos del vehículo advirtiendo el reingreso; bloquear si hay acta vigente
+- [x] 5.6 Detalle del acta con checklist, orden de venta e historial de recepciones anteriores del vehículo
+- [x] 5.7 Adaptar `MisCaptaciones` y `/captaciones/derivadas` al contrato de actas
+- [x] 5.8 Mostrar comisión pactada, abono descontado y saldo neto al confirmar la venta
+- [x] 5.9 Mantenedor `/vehiculos` para `Management`: grilla buscable por PPU, detalle con atributos físicos e historial de actas, y edición con advertencia de impacto y motivo obligatorio
+- [x] 5.10 Rutas en `App.tsx`: `/actas` (grilla), `/actas/nueva`, `/actas/:id`, `/vehiculos`, `/vehiculos/:id`
 
 ## 6. Pruebas
 

@@ -208,107 +208,108 @@ def crear_acta(
     _validate_catalog(db, Color, body.color_id, "Color inválido")
     _validate_catalog(db, Comuna, body.cliente.comuna_id, "Comuna inválida")
 
-    # get-or-create cliente por RUT
-    cliente = db.scalar(
-        select(Cliente).where(Cliente.tenant_id == tenant_id, Cliente.rut == body.cliente.rut)
-    )
-    if cliente is None:
-        cliente = Cliente(
-            tenant_id=tenant_id, rut=body.cliente.rut, nombre=body.cliente.nombre,
-            email=body.cliente.email, telefono=body.cliente.telefono,
-            domicilio=body.cliente.domicilio, comuna_id=body.cliente.comuna_id,
-        )
-        db.add(cliente)
-        db.flush()
-    else:
-        cliente.nombre = body.cliente.nombre
-        cliente.email = body.cliente.email
-        cliente.telefono = body.cliente.telefono
-        cliente.domicilio = body.cliente.domicilio
-        cliente.comuna_id = body.cliente.comuna_id
-
-    # get-or-create vehículo por PPU. Si ya existe con acta activa -> 409.
-    vehiculo = db.scalar(
-        select(Vehiculo).where(Vehiculo.tenant_id == tenant_id, func.upper(Vehiculo.ppu) == ppu)
-    )
-    if vehiculo is None:
-        vehiculo = Vehiculo(
-            tenant_id=tenant_id, ppu=ppu, version_id=version.id, anio=body.anio,
-            n_motor=body.n_motor, n_chasis=body.n_chasis, color_id=body.color_id,
-            tipo_vehiculo_id=body.tipo_vehiculo_id, combustible_id=body.combustible_id,
-        )
-        db.add(vehiculo)
-        db.flush()
-    else:
-        activa = db.scalar(
-            select(ActaRecepcion.id).where(
-                ActaRecepcion.vehiculo_id == vehiculo.id,
-                ActaRecepcion.cerrada.is_(False),
-            )
-        )
-        if activa:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Este vehículo ya tiene un acta vigente en el tenant",
-            )
-        # Reingreso: la ficha se reutiliza y se refrescan los datos físicos.
-        vehiculo.version_id = version.id
-        vehiculo.anio = body.anio
-        if body.n_motor:
-            vehiculo.n_motor = body.n_motor
-        if body.n_chasis:
-            vehiculo.n_chasis = body.n_chasis
-        if body.color_id:
-            vehiculo.color_id = body.color_id
-
-    estado_recep = _estado(db, RECEPCIONADO)
-    acta = ActaRecepcion(
-        tenant_id=tenant_id,
-        vehiculo_id=vehiculo.id,
-        cliente_id=cliente.id,
-        captador_user_id=current.id,
-        sucursal_id=suc.id,
-        sucursal_venta_id=suc_venta.id,
-        estado_id=estado_recep.id,
-        km_ingreso=body.km_ingreso,
-        fecha_recepcion=date.today(),
-        precio_venta_pactado=body.precio_venta_pactado,
-        vigencia_dias=body.vigencia_dias,
-        tipo_comision_id=tipo_comision.id,
-        exclusividad_abono=body.exclusividad_abono,
-        estado_abono_id=_estado_abono(db, NO_DEVENGADO).id,
-        fecha_cobro_abono=date.today() if body.exclusividad_abono > 0 else None,
-        cerrada=False,
-    )
-    db.add(acta)
-    try:
-        db.flush()
-    except IntegrityError:
-        # El índice único parcial cierra la ventana de concurrencia: dos
-        # requests simultáneos para la misma PPU no pueden dejar dos activas.
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Este vehículo ya tiene un acta vigente en el tenant",
-        )
-
+    # Validar el checklist antes de tocar la BD (400 no es conflicto de concurrencia).
     valid_items = {i.id for i in db.scalars(select(ChecklistItem)).all()}
     valid_estados = {e.id for e in db.scalars(select(EstadoChecklist)).all()}
     for entry in body.checklist:
-        if entry.checklist_item_id not in valid_items:
-            continue
         if entry.estado_checklist_id is not None and entry.estado_checklist_id not in valid_estados:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Estado de checklist inválido",
             )
-        db.add(ActaChecklist(
-            acta_id=acta.id, checklist_item_id=entry.checklist_item_id,
-            presente=entry.presente, estado_checklist_id=entry.estado_checklist_id,
-            fecha_vencimiento=entry.fecha_vencimiento, observacion=entry.observacion,
-        ))
 
-    db.flush()
+    # get-or-create de cliente y vehículo + creación del acta. Cualquier colisión
+    # de unicidad (RUT, PPU o el índice de acta activa) bajo concurrencia real se
+    # traduce a 409: un solo request gana con 201, el resto reintenta.
+    try:
+        cliente = db.scalar(
+            select(Cliente).where(Cliente.tenant_id == tenant_id, Cliente.rut == body.cliente.rut)
+        )
+        if cliente is None:
+            cliente = Cliente(
+                tenant_id=tenant_id, rut=body.cliente.rut, nombre=body.cliente.nombre,
+                email=body.cliente.email, telefono=body.cliente.telefono,
+                domicilio=body.cliente.domicilio, comuna_id=body.cliente.comuna_id,
+            )
+            db.add(cliente)
+        else:
+            cliente.nombre = body.cliente.nombre
+            cliente.email = body.cliente.email
+            cliente.telefono = body.cliente.telefono
+            cliente.domicilio = body.cliente.domicilio
+            cliente.comuna_id = body.cliente.comuna_id
+        db.flush()
+
+        vehiculo = db.scalar(
+            select(Vehiculo).where(Vehiculo.tenant_id == tenant_id, func.upper(Vehiculo.ppu) == ppu)
+        )
+        if vehiculo is None:
+            vehiculo = Vehiculo(
+                tenant_id=tenant_id, ppu=ppu, version_id=version.id, anio=body.anio,
+                n_motor=body.n_motor, n_chasis=body.n_chasis, color_id=body.color_id,
+                tipo_vehiculo_id=body.tipo_vehiculo_id, combustible_id=body.combustible_id,
+            )
+            db.add(vehiculo)
+            db.flush()
+        else:
+            # Ficha preexistente: rechazar si tiene acta vigente; refrescar datos físicos.
+            activa = db.scalar(
+                select(ActaRecepcion.id).where(
+                    ActaRecepcion.vehiculo_id == vehiculo.id,
+                    ActaRecepcion.cerrada.is_(False),
+                )
+            )
+            if activa:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Este vehículo ya tiene un acta vigente en el tenant",
+                )
+            vehiculo.version_id = version.id
+            vehiculo.anio = body.anio
+            if body.n_motor:
+                vehiculo.n_motor = body.n_motor
+            if body.n_chasis:
+                vehiculo.n_chasis = body.n_chasis
+            if body.color_id:
+                vehiculo.color_id = body.color_id
+
+        estado_recep = _estado(db, RECEPCIONADO)
+        acta = ActaRecepcion(
+            tenant_id=tenant_id,
+            vehiculo_id=vehiculo.id,
+            cliente_id=cliente.id,
+            captador_user_id=current.id,
+            sucursal_id=suc.id,
+            sucursal_venta_id=suc_venta.id,
+            estado_id=estado_recep.id,
+            km_ingreso=body.km_ingreso,
+            fecha_recepcion=date.today(),
+            precio_venta_pactado=body.precio_venta_pactado,
+            vigencia_dias=body.vigencia_dias,
+            tipo_comision_id=tipo_comision.id,
+            exclusividad_abono=body.exclusividad_abono,
+            estado_abono_id=_estado_abono(db, NO_DEVENGADO).id,
+            fecha_cobro_abono=date.today() if body.exclusividad_abono > 0 else None,
+            cerrada=False,
+        )
+        db.add(acta)
+        for entry in body.checklist:
+            if entry.checklist_item_id not in valid_items:
+                continue
+            db.add(ActaChecklist(
+                acta=acta, checklist_item_id=entry.checklist_item_id,
+                presente=entry.presente, estado_checklist_id=entry.estado_checklist_id,
+                fecha_vencimiento=entry.fecha_vencimiento, observacion=entry.observacion,
+            ))
+        db.flush()
+    except IntegrityError:
+        # Ventana de concurrencia: RUT, PPU o índice de acta activa colisionaron.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflicto de creación concurrente para esta patente. Reintenta.",
+        )
+
     _registrar_historial(db, acta, current.id)
     audit_service.log(
         db, tenant_id=tenant_id, user_id=current.id,
