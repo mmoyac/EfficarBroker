@@ -118,58 +118,68 @@ export default function MisCaptaciones() {
                       <Link to={`/actas/${a.id}`} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface">
                         Ver
                       </Link>
-                      {a.estado_code === "CAPTADO" && !a.cerrada && (
-                        <button
-                          onClick={() => setRecepcionarFor(a)}
-                          className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600"
-                        >
-                          Recepcionar
-                        </button>
-                      )}
-                      {(a.estado_code === "CAPTADO" || a.estado_code === "RECEPCIONADO") && !a.cerrada && (
+                      {/* Si la venta se derivó a otra sucursal, la gestión (recepcionar,
+                          vender, cerrar) es de esa sucursal; aquí el captador solo monitorea. */}
+                      {a.derivado ? (
+                        <span className="rounded bg-orange-50 px-2 py-1 text-orange-700">
+                          Gestión en {a.sucursal_venta}
+                        </span>
+                      ) : (
                         <>
-                          <button
-                            onClick={() => setEditFor(a)}
-                            disabled={eliminarMut.isPending}
-                            className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => setCerrarFor(a)}
-                            className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface"
-                          >
-                            Cerrar sin venta
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (window.confirm(`¿Eliminar acta ${a.ppu}? Esta acción no se puede deshacer.`)) {
-                                eliminarMut.mutate(a);
-                              }
-                            }}
-                            disabled={eliminarMut.isPending}
-                            className="rounded border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50 disabled:opacity-60"
-                          >
-                            Eliminar
-                          </button>
+                          {a.estado_code === "CAPTADO" && !a.cerrada && (
+                            <button
+                              onClick={() => setRecepcionarFor(a)}
+                              className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600"
+                            >
+                              Recepcionar
+                            </button>
+                          )}
+                          {(a.estado_code === "CAPTADO" || a.estado_code === "RECEPCIONADO") && !a.cerrada && (
+                            <>
+                              <button
+                                onClick={() => setEditFor(a)}
+                                disabled={eliminarMut.isPending}
+                                className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => setCerrarFor(a)}
+                                className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface"
+                              >
+                                Cerrar sin venta
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`¿Eliminar acta ${a.ppu}? Esta acción no se puede deshacer.`)) {
+                                    eliminarMut.mutate(a);
+                                  }
+                                }}
+                                disabled={eliminarMut.isPending}
+                                className="rounded border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                              >
+                                Eliminar
+                              </button>
+                            </>
+                          )}
+                          {VENDIBLE.has(a.estado_code) && !a.cerrada && (
+                            <button
+                              onClick={() => setVentaFor(a)}
+                              className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600"
+                            >
+                              Registrar venta
+                            </button>
+                          )}
+                          {DOC_FIRMA.has(a.estado_code) && (
+                            <button
+                              onClick={() => documentoMut.mutate(a)}
+                              disabled={documentoMut.isPending}
+                              className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
+                            >
+                              PDF firma
+                            </button>
+                          )}
                         </>
-                      )}
-                      {VENDIBLE.has(a.estado_code) && !a.cerrada && (
-                        <button
-                          onClick={() => setVentaFor(a)}
-                          className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600"
-                        >
-                          Registrar venta
-                        </button>
-                      )}
-                      {DOC_FIRMA.has(a.estado_code) && (
-                        <button
-                          onClick={() => documentoMut.mutate(a)}
-                          disabled={documentoMut.isPending}
-                          className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
-                        >
-                          PDF firma
-                        </button>
                       )}
                     </div>
                   </td>

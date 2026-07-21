@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { downloadDocumentoFirma, listActas } from "@/services/actas";
 import RecepcionarModal from "@/pages/RecepcionarModal";
+import EditarActaModal from "@/pages/EditarActaModal";
 import { CerrarSinVentaModal, RegistrarVentaModal } from "@/pages/ActaModals";
 import type { Acta } from "@/types";
 
@@ -27,6 +28,7 @@ export default function DerivadasVentas() {
   const [ventaFor, setVentaFor] = useState<Acta | null>(null);
   const [recepcionarFor, setRecepcionarFor] = useState<Acta | null>(null);
   const [cerrarFor, setCerrarFor] = useState<Acta | null>(null);
+  const [editFor, setEditFor] = useState<Acta | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: ["actas"] });
 
   const documentoMut = useMutation({
@@ -108,9 +110,14 @@ export default function DerivadasVentas() {
                         </button>
                       )}
                       {(a.estado_code === "CAPTADO" || a.estado_code === "RECEPCIONADO") && !a.cerrada && (
-                        <button onClick={() => setCerrarFor(a)} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface">
-                          Cerrar sin venta
-                        </button>
+                        <>
+                          <button onClick={() => setEditFor(a)} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface">
+                            Editar
+                          </button>
+                          <button onClick={() => setCerrarFor(a)} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface">
+                            Cerrar sin venta
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -129,6 +136,9 @@ export default function DerivadasVentas() {
       )}
       {cerrarFor && (
         <CerrarSinVentaModal acta={cerrarFor} onClose={() => setCerrarFor(null)} onDone={() => { setCerrarFor(null); invalidate(); }} />
+      )}
+      {editFor && (
+        <EditarActaModal actaId={editFor.id} onClose={() => setEditFor(null)} onDone={() => { setEditFor(null); invalidate(); }} />
       )}
     </div>
   );

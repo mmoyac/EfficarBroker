@@ -85,13 +85,28 @@ El sistema SHALL conservar al `captador_user_id` del acta como beneficiario de l
 - **WHEN** un auto captado antes por Araneth se recapta después por Cristian y se vende
 - **THEN** la comisión de captación de esa segunda venta corresponde a Cristian, sin que Araneth participe
 
+### Requirement: Gestión del acta derivada por la sucursal de venta
+Cuando la venta se deriva a otra sucursal, el auto llega directo a esa sucursal y su equipo la gestiona de punta a punta. El sistema SHALL permitir al equipo de la sucursal de venta (ejecutivos cuya `sucursal_id` es la `sucursal_venta_id` del acta) recepcionar, editar, registrar la venta y cerrar sin venta el acta derivada. El captador SHALL conservar la edición, pero NO SHALL ver acciones operativas sobre un acta derivada en su propia bandeja de captaciones: allí solo la monitorea. Eliminar el acta SHALL seguir restringido al captador o a un rol transversal.
+
+#### Scenario: La sucursal de venta edita el acta derivada
+- **WHEN** un ejecutivo de la sucursal de venta edita un acta derivada a su sucursal
+- **THEN** el sistema acepta el cambio (`200`)
+
+#### Scenario: Un ejecutivo ajeno no puede editar
+- **WHEN** un ejecutivo que no es el captador ni pertenece a la sucursal de venta intenta editar el acta
+- **THEN** el sistema responde `403`
+
+#### Scenario: El captador solo monitorea el acta derivada
+- **WHEN** el captador abre su lista de captaciones y el acta está derivada
+- **THEN** solo ve la acción "Ver"; las acciones de recepcionar, vender y cerrar no se ofrecen ahí
+
 ### Requirement: Backoffice — selección de sucursal de venta y bandeja de derivadas
-El backoffice SHALL permitir en `/actas/nueva` elegir entre "La venta la realizo yo" y "Derivar la venta a otra sucursal" (que habilita el selector de sucursal de venta), y SHALL ofrecer en `/captaciones/derivadas` la lista de actas derivadas a la sucursal del ejecutivo con la acción de registrar venta.
+El backoffice SHALL permitir en `/actas/nueva` elegir entre "La venta la realizo yo" y "Derivar la venta a otra sucursal" (que habilita el selector de sucursal de venta y el vendedor nominado), y SHALL ofrecer en `/captaciones/derivadas` la lista de actas derivadas a la sucursal del ejecutivo con las acciones de recepcionar, editar, registrar venta, PDF de firma y cerrar sin venta.
 
 #### Scenario: Derivar desde el formulario del acta
 - **WHEN** un ejecutivo marca "Derivar la venta" y selecciona una sucursal distinta a la de origen
 - **THEN** el acta se crea con esa sucursal de venta y aparece en la bandeja de derivadas de la sucursal destino
 
-#### Scenario: Tomar una venta derivada
-- **WHEN** un ejecutivo de la sucursal destino abre `/captaciones/derivadas` y registra la venta de un acta derivada
-- **THEN** el acta pasa a `VENDIDO` con él como vendedor
+#### Scenario: Gestionar una venta derivada
+- **WHEN** un ejecutivo de la sucursal destino abre `/captaciones/derivadas`, recepciona el auto y registra la venta
+- **THEN** el acta pasa por `RECEPCIONADO` y luego `VENDIDO` con él como vendedor

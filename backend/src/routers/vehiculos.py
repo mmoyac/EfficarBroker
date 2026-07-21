@@ -257,17 +257,23 @@ def editar_ficha(
                 detail="Debe indicar un motivo: el cambio afecta documentos ya emitidos.",
             )
     else:
-        # Sin historial: el captador de su acta activa puede corregir.
+        # Sin historial: puede corregir el captador de su acta activa o —si esa
+        # acta está derivada— el equipo de la sucursal de venta (que gestiona el auto).
         acta_activa = db.scalar(
             select(ActaRecepcion).where(
                 ActaRecepcion.vehiculo_id == v.id, ActaRecepcion.cerrada.is_(False)
             )
         )
         es_captador = acta_activa is not None and acta_activa.captador_user_id == current.id
-        if not (es_transversal or es_captador):
+        es_equipo_venta_derivada = (
+            acta_activa is not None
+            and acta_activa.sucursal_venta_id != acta_activa.sucursal_id
+            and current.sucursal_id == acta_activa.sucursal_venta_id
+        )
+        if not (es_transversal or es_captador or es_equipo_venta_derivada):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el captador o un administrador puede editar esta ficha.",
+                detail="Solo el captador, la sucursal de venta o un administrador puede editar esta ficha.",
             )
 
     patch = body.model_dump(exclude_unset=True)

@@ -629,14 +629,19 @@ def editar_acta(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Solo se puede editar mientras el acta no esté vendida (estado actual: {a.estado.code})",
         )
+    # Puede editar: un rol transversal, el captador, o —si la venta se derivó a
+    # otra sucursal— el equipo de esa sucursal de venta, que es quien gestiona el
+    # auto derivado (lo recepciona, ajusta checklist y vende).
+    es_equipo_venta_derivada = a.derivado and current.sucursal_id == a.sucursal_venta_id
     can_edit = (
         current.role.code in _ROLES_TRANSVERSALES
         or a.captador_user_id == current.id
+        or es_equipo_venta_derivada
     )
     if not can_edit:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo el captador o un administrador puede editar esta acta.",
+            detail="Solo el captador, la sucursal de venta o un administrador puede editar esta acta.",
         )
 
     patch = body.model_dump(exclude_unset=True)
