@@ -24,12 +24,12 @@
 
 ## 4. Backoffice
 
-- [ ] 4.1 Servicios y tipos TypeScript de comisiones y parámetros
-- [ ] 4.2 `/comisiones` (Sales): grilla de mis comisiones (tipo, acta/PPU, vehículo, cliente, monto, estado de pago), total y filtros por fecha/estado; solo lectura
-- [ ] 4.3 `/liquidaciones/ordenes` (Management): generar orden de pago de un ejecutivo por período (fecha de pago + mínimo), ver las órdenes emitidas con su detalle
-- [ ] 4.4 `/config/comisiones` (TenantAdmin): formulario de `pool_pct` + split captación/venta, con la advertencia de que rige hacia adelante
-- [ ] 4.5 `/bi/resultados` (TenantAdmin): estado de resultados del período con tarjetas (ventas, comisión empresa, comisiones ejecutivos, margen, abonos) y selector de fechas
-- [ ] 4.6 Rutas en `App.tsx`: `/comisiones`, `/config/comisiones`, `/liquidaciones/ordenes`, `/bi/resultados`
+- [x] 4.1 Servicios y tipos TypeScript de comisiones y parámetros
+- [x] 4.2 `/comisiones` (Sales): grilla de mis comisiones (tipo, acta/PPU, vehículo, cliente, monto, estado de pago), total y filtros por fecha/estado; solo lectura
+- [x] 4.3 `/liquidaciones/ordenes` (Management): generar orden de pago de un ejecutivo por período (fecha de pago + mínimo), ver las órdenes emitidas con su detalle
+- [x] 4.4 `/config/comisiones` (TenantAdmin): formulario de `pool_pct` + split captación/venta, con la advertencia de que rige hacia adelante
+- [x] 4.5 `/bi/resultados` (TenantAdmin): estado de resultados del período con tarjetas (ventas, comisión empresa, comisiones ejecutivos, margen, abonos) y selector de fechas
+- [x] 4.6 Rutas en `App.tsx`: `/comisiones`, `/config/comisiones`, `/liquidaciones/ordenes`, `/bi/resultados`
 
 ## 5. Pruebas
 
@@ -37,7 +37,7 @@
 - [x] 5.2 Venta derivada: captación al captador, venta al vendedor, montos correctos
 - [x] 5.3 Congelamiento: cambiar los parámetros no altera comisiones ya generadas
 - [x] 5.4 Cerrar sin venta no genera comisión
-- [ ] 5.5 `/comisiones?mine` filtra por beneficiario; `?estado_pago=PENDIENTE` filtra bien
+- [x] 5.5 `/comisiones?mine` filtra por beneficiario; `?estado_pago=PENDIENTE` filtra bien
 - [x] 5.6 Orden de pago: agrupa las pendientes del ejecutivo en el período y las marca `PAGADA`; `monto_total = base + comisiones`; no re-agrupa ya pagadas; `403` a `Sales`
 - [x] 5.7 `PATCH /parametros-comision`: split que no suma 100 → `400`; `Sales` → `403`
 - [x] 5.8 Aislamiento entre tenants en comisiones y parámetros
