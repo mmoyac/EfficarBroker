@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { downloadDocumentoFirma, listActas, registrarVenta } from "@/services/actas";
-import { listEquipoVentas } from "@/services/vehiculos";
+import { downloadDocumentoFirma, listActas } from "@/services/actas";
+import RecepcionarModal from "@/pages/RecepcionarModal";
+import { CerrarSinVentaModal, RegistrarVentaModal } from "@/pages/ActaModals";
 import type { Acta } from "@/types";
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -12,8 +14,8 @@ const ESTADO_STYLES: Record<string, string> = {
   VENDIDO: "bg-purple-100 text-purple-700",
 };
 
-const VENDIBLE = new Set(["CONTRATO_ACEPTADO", "PUBLICADO"]);
-const DOC_FIRMA = new Set(["CONTRATO_ACEPTADO", "PUBLICADO", "VENDIDO"]);
+const VENDIBLE = new Set(["RECEPCIONADO", "CONTRATO_ACEPTADO", "PUBLICADO"]);
+const DOC_FIRMA = new Set(["RECEPCIONADO", "CONTRATO_ACEPTADO", "PUBLICADO", "VENDIDO"]);
 
 export default function DerivadasVentas() {
   const qc = useQueryClient();
@@ -23,6 +25,9 @@ export default function DerivadasVentas() {
   });
 
   const [ventaFor, setVentaFor] = useState<Acta | null>(null);
+  const [recepcionarFor, setRecepcionarFor] = useState<Acta | null>(null);
+  const [cerrarFor, setCerrarFor] = useState<Acta | null>(null);
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["actas"] });
 
   const documentoMut = useMutation({
     mutationFn: async (a: Acta) => {
@@ -39,7 +44,7 @@ export default function DerivadasVentas() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-brand-ink">Ventas Derivadas a mi Sucursal</h1>
         <p className="text-sm text-brand-muted">
-          Vehículos captados en otra sucursal cuya venta se gestiona en la tuya.
+          Autos captados en otra sucursal cuya venta se gestiona en la tuya. El auto llega acá: recepciónalo y véndelo.
         </p>
       </div>
 
@@ -71,18 +76,14 @@ export default function DerivadasVentas() {
               {data.map((a) => (
                 <tr key={a.id} className="border-b border-brand-surface-2 last:border-0">
                   <td className="px-4 py-3 font-mono font-medium text-brand-ink">{a.ppu}</td>
-                  <td className="px-4 py-3">
-                    {a.vehiculo.marca} {a.vehiculo.modelo} <span className="text-brand-muted">{a.vehiculo.anio}</span>
-                  </td>
+                  <td className="px-4 py-3">{a.vehiculo.marca} {a.vehiculo.modelo} <span className="text-brand-muted">{a.vehiculo.anio}</span></td>
                   <td className="px-4 py-3 text-brand-muted">{a.cliente}</td>
                   <td className="px-4 py-3 text-xs">
                     {a.sucursal} <span className="text-brand-muted-2">→</span>{" "}
                     <span className="font-medium text-orange-700">{a.sucursal_venta}</span>
                   </td>
                   <td className="px-4 py-3">{a.captador}</td>
-                  <td className="px-4 py-3">
-                    ${(a.precio_venta_final ?? a.precio_venta_pactado).toLocaleString("es-CL")}
-                  </td>
+                  <td className="px-4 py-3">${(a.precio_venta_final ?? a.precio_venta_pactado).toLocaleString("es-CL")}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs ${ESTADO_STYLES[a.estado_code] ?? "bg-gray-100 text-gray-600"}`}>
                       {a.estado}
@@ -90,25 +91,26 @@ export default function DerivadasVentas() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2 text-xs">
-                      {VENDIBLE.has(a.estado_code) && (
-                        <button
-                          onClick={() => setVentaFor(a)}
-                          className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600"
-                        >
+                      <Link to={`/actas/${a.id}`} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface">Ver</Link>
+                      {a.estado_code === "CAPTADO" && (
+                        <button onClick={() => setRecepcionarFor(a)} className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600">
+                          Recepcionar
+                        </button>
+                      )}
+                      {VENDIBLE.has(a.estado_code) && !a.cerrada && (
+                        <button onClick={() => setVentaFor(a)} className="rounded bg-brand-accent px-2 py-1 font-medium text-black hover:bg-brand-accent-600">
                           Registrar venta
                         </button>
                       )}
                       {DOC_FIRMA.has(a.estado_code) && (
-                        <button
-                          onClick={() => documentoMut.mutate(a)}
-                          disabled={documentoMut.isPending}
-                          className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60"
-                        >
+                        <button onClick={() => documentoMut.mutate(a)} disabled={documentoMut.isPending} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface disabled:opacity-60">
                           PDF firma
                         </button>
                       )}
-                      {!VENDIBLE.has(a.estado_code) && !DOC_FIRMA.has(a.estado_code) && (
-                        <span className="text-brand-muted-2">—</span>
+                      {(a.estado_code === "CAPTADO" || a.estado_code === "RECEPCIONADO") && !a.cerrada && (
+                        <button onClick={() => setCerrarFor(a)} className="rounded border border-brand-surface-2 px-2 py-1 hover:bg-brand-surface">
+                          Cerrar sin venta
+                        </button>
                       )}
                     </div>
                   </td>
@@ -120,97 +122,17 @@ export default function DerivadasVentas() {
       )}
 
       {ventaFor && (
-        <RegistrarVentaModal
-          acta={ventaFor}
-          onClose={() => setVentaFor(null)}
-          onDone={() => {
-            setVentaFor(null);
-            qc.invalidateQueries({ queryKey: ["actas"] });
-          }}
-        />
+        <RegistrarVentaModal acta={ventaFor} onClose={() => setVentaFor(null)} onDone={() => { setVentaFor(null); invalidate(); }} />
+      )}
+      {recepcionarFor && (
+        <RecepcionarModal acta={recepcionarFor} onClose={() => setRecepcionarFor(null)} onDone={() => { setRecepcionarFor(null); invalidate(); }} />
+      )}
+      {cerrarFor && (
+        <CerrarSinVentaModal acta={cerrarFor} onClose={() => setCerrarFor(null)} onDone={() => { setCerrarFor(null); invalidate(); }} />
       )}
     </div>
   );
 }
-
-function RegistrarVentaModal({
-  acta, onClose, onDone,
-}: {
-  acta: Acta; onClose: () => void; onDone: () => void;
-}) {
-  const equipoQ = useQuery({ queryKey: ["equipo-ventas"], queryFn: () => listEquipoVentas() });
-  const [vendedorId, setVendedorId] = useState<number | "">("");
-  const [precio, setPrecio] = useState(String(acta.precio_venta_pactado));
-  const [error, setError] = useState<string | null>(null);
-
-  const mut = useMutation({
-    mutationFn: () => registrarVenta(acta.id, Number(vendedorId), Number(precio || 0)),
-    onSuccess: onDone,
-    onError: (e: unknown) => setError(extractError(e)),
-  });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-brand-ink">Registrar venta derivada</h2>
-        <p className="mb-4 text-sm text-brand-muted">
-          {acta.ppu} · {acta.vehiculo.marca} {acta.vehiculo.modelo} · venta en {acta.sucursal_venta}
-        </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setError(null);
-            if (vendedorId === "") {
-              setError("Selecciona al vendedor.");
-              return;
-            }
-            mut.mutate();
-          }}
-          className="space-y-3"
-        >
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-brand-ink">Vendedor (de la sucursal de venta)</span>
-            <select
-              value={vendedorId}
-              onChange={(e) => setVendedorId(e.target.value === "" ? "" : Number(e.target.value))}
-              className={inputCls}
-              required
-            >
-              <option value="" disabled>Seleccionar ejecutivo</option>
-              {equipoQ.data?.map((u) => (
-                <option key={u.id} value={u.id}>{u.nombre}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-brand-ink">Precio de venta final (CLP)</span>
-            <input
-              type="number"
-              value={precio}
-              onChange={(e) => setPrecio(e.target.value)}
-              className={inputCls}
-              required
-            />
-          </label>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="rounded-lg border border-brand-surface-2 px-4 py-2 text-sm hover:bg-brand-surface">
-              Cancelar
-            </button>
-            <button type="submit" disabled={mut.isPending} className="rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-black hover:bg-brand-accent-600 disabled:opacity-60">
-              {mut.isPending ? "Registrando…" : "Confirmar venta"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-const inputCls =
-  "w-full rounded-lg border border-brand-surface-2 px-3 py-2 text-sm outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/40";
 
 function extractError(e: unknown): string {
   const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
