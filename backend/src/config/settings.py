@@ -25,6 +25,10 @@ class Settings(BaseSettings):
 
     # Seed
     SEED_DEFAULT_PASSWORD: str = "admin123"
+    # Datos operacionales y 2º tenant de DEMO: solo para dev/pruebas.
+    # En producción se deja en false → la base queda con catálogos + maestras
+    # + el tenant real y sus usuarios, sin captaciones/vehículos/tenant demo.
+    SEED_DEMO_DATA: bool = False
 
     # Media / storage de fotos de la galería
     # MEDIA_ROOT: directorio en disco donde se guardan los archivos subidos.

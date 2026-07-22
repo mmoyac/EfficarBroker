@@ -290,6 +290,126 @@ def _crear_acta_seed(
     return acta
 
 
+def _seed_demo_data(
+    db: Session, *, tenant, roles, ciudades, comunas, colores,
+    sucursales, estados_abono, tipos_comision, pwd,
+) -> None:
+    """Datos operacionales y 2º tenant de DEMO (SOLO dev). Idempotente.
+
+    Cubre flujos de prueba (derivación, reingreso, cambio de contexto del
+    SuperAdmin). En producción NO se ejecuta (SEED_DEMO_DATA=false).
+    """
+    # --- Operacional demo: vehículo DERIVADO (captado en Rancagua, venta en Santiago) ---
+    captador = db.scalar(
+        select(User).where(User.email == "araneth@vendemostuautomovil.com")
+    )
+    version_demo = db.scalar(
+        select(VehiculoVersion).join(VehiculoModelo).join(VehiculoMarca)
+        .where(VehiculoMarca.nombre == "Toyota", VehiculoModelo.nombre == "Corolla", VehiculoVersion.nombre == "XEI")
+    )
+    estado_recep = db.scalar(select(EstadoVehiculo).where(EstadoVehiculo.code == "RECEPCIONADO"))
+    estado_vendido = db.scalar(select(EstadoVehiculo).where(EstadoVehiculo.code == "VENDIDO"))
+    if captador and version_demo and estado_recep:
+        cliente_demo, _ = _get_or_create(
+            db, Cliente,
+            defaults={
+                "nombre": "Cliente Derivado Demo", "email": None, "telefono": None,
+                "domicilio": "Av. Ejemplo 1234", "comuna_id": comunas["Santiago"].id,
+            },
+            tenant_id=tenant.id, rut="11111111-1",
+        )
+        cliente_demo.domicilio = "Av. Ejemplo 1234"
+        cliente_demo.comuna_id = comunas["Santiago"].id
+        veh_demo, _ = _get_or_create(
+            db, Vehiculo,
+            defaults={
+                "version_id": version_demo.id, "anio": 2019,
+                "n_motor": None, "n_chasis": None, "color_id": colores["GRIS"].id,
+            },
+            tenant_id=tenant.id, ppu="DERV01",
+        )
+        veh_demo.color_id = veh_demo.color_id or colores["GRIS"].id
+        db.flush()
+        # Acta ACTIVA (derivada) sobre ese vehículo, si no tiene ninguna.
+        tiene_acta = db.scalar(
+            select(ActaRecepcion.id).where(ActaRecepcion.vehiculo_id == veh_demo.id)
+        )
+        if not tiene_acta:
+            _crear_acta_seed(
+                db, tenant_id=tenant.id, vehiculo=veh_demo, cliente=cliente_demo,
+                captador=captador, sucursal_origen=sucursales["Sucursal Rancagua"],
+                sucursal_venta=sucursales["Sucursal Santiago"],
+                estado=estado_recep, estado_abono=estados_abono["NO_DEVENGADO"],
+                tipo_comision=tipos_comision["estandar"], km=45000,
+                precio=12000000, cerrada=False,
+            )
+
+    # --- Operacional demo: REINGRESO (mismo auto, dos dueños) ---
+    # Un vehículo con un acta ya VENDIDA y otra activa: cubre el caso que el
+    # modelo viejo hacía imposible.
+    cap_stgo = db.scalar(select(User).where(User.email == "cristian@vendemostuautomovil.com"))
+    version_ri = db.scalar(
+        select(VehiculoVersion).join(VehiculoModelo).join(VehiculoMarca)
+        .where(VehiculoModelo.nombre == "Corolla")
+    )
+    if cap_stgo and version_ri and estado_recep and estado_vendido:
+        veh_ri, nuevo = _get_or_create(
+            db, Vehiculo,
+            defaults={"version_id": version_ri.id, "anio": 2017, "color_id": colores["NEGRO"].id},
+            tenant_id=tenant.id, ppu="REING01",
+        )
+        if nuevo or not db.scalar(select(ActaRecepcion.id).where(ActaRecepcion.vehiculo_id == veh_ri.id)):
+            cli_1, _ = _get_or_create(
+                db, Cliente, defaults={"nombre": "Primer Dueño Demo", "comuna_id": comunas["Santiago"].id},
+                tenant_id=tenant.id, rut="22222222-2",
+            )
+            cli_2, _ = _get_or_create(
+                db, Cliente, defaults={"nombre": "Segundo Dueño Demo", "comuna_id": comunas["Santiago"].id},
+                tenant_id=tenant.id, rut="33333333-3",
+            )
+            # Acta 1: vendida en el pasado (cerrada).
+            _crear_acta_seed(
+                db, tenant_id=tenant.id, vehiculo=veh_ri, cliente=cli_1, captador=cap_stgo,
+                sucursal_origen=sucursales["Sucursal Santiago"], sucursal_venta=sucursales["Sucursal Santiago"],
+                estado=estado_vendido, estado_abono=estados_abono["APLICADO_COMISION"],
+                tipo_comision=tipos_comision["estandar"], km=60000, precio=8500000,
+                cerrada=True, vendedor=cap_stgo, precio_final=8300000,
+            )
+            # Acta 2: el mismo auto vuelve, otro dueño, recepción vigente.
+            _crear_acta_seed(
+                db, tenant_id=tenant.id, vehiculo=veh_ri, cliente=cli_2, captador=cap_stgo,
+                sucursal_origen=sucursales["Sucursal Santiago"], sucursal_venta=sucursales["Sucursal Santiago"],
+                estado=estado_recep, estado_abono=estados_abono["NO_DEVENGADO"],
+                tipo_comision=tipos_comision["gold"], km=88000, precio=7900000, cerrada=False,
+            )
+
+    # --- 2º tenant demo (para probar cambio de contexto del SuperAdmin) ---
+    demo_tenant, _ = _get_or_create(
+        db, Tenant, defaults={"nombre": DEMO_TENANT_NOMBRE, "activo": True},
+        dominio=DEMO_TENANT_DOMINIO,
+    )
+    db.flush()
+    _get_or_create(db, ParametrosComision,
+                   defaults={"pool_pct": 20, "captacion_pct": 40, "venta_pct": 60},
+                   tenant_id=demo_tenant.id)
+    d_nombre, d_dir, d_ciudad = DEMO_SUCURSAL
+    demo_suc, _ = _get_or_create(
+        db, Sucursal,
+        defaults={"direccion": d_dir, "ciudad_id": ciudades[d_ciudad].id},
+        tenant_id=demo_tenant.id, nombre=d_nombre,
+    )
+    du_nombre, du_email, du_tel, du_role = DEMO_USER
+    _get_or_create(
+        db, User,
+        defaults={
+            "nombre": du_nombre, "telefono": du_tel, "role_id": roles[du_role].id,
+            "tenant_id": demo_tenant.id, "sucursal_id": demo_suc.id,
+            "password_hash": pwd, "activo": True,
+        },
+        email=du_email,
+    )
+
+
 def seed() -> None:
     db = SessionLocal()
     try:
@@ -460,120 +580,18 @@ def seed() -> None:
             )
             user.rut = rut
 
-        # --- Operacional demo: vehículo DERIVADO (captado en Rancagua, venta en Santiago) ---
-        # Valida el flujo de derivación end-to-end: sucursal_id != sucursal_venta_id.
-        # El captador es de Rancagua (Araneth); el vendedor nominado, de Santiago.
-        captador = db.scalar(
-            select(User).where(User.email == "araneth@vendemostuautomovil.com")
-        )
-        version_demo = db.scalar(
-            select(VehiculoVersion).join(VehiculoModelo).join(VehiculoMarca)
-            .where(VehiculoMarca.nombre == "Toyota", VehiculoModelo.nombre == "Corolla", VehiculoVersion.nombre == "XEI")
-        )
-        estado_recep = db.scalar(select(EstadoVehiculo).where(EstadoVehiculo.code == "RECEPCIONADO"))
-        estado_vendido = db.scalar(select(EstadoVehiculo).where(EstadoVehiculo.code == "VENDIDO"))
-        if captador and version_demo and estado_recep:
-            cliente_demo, _ = _get_or_create(
-                db, Cliente,
-                defaults={
-                    "nombre": "Cliente Derivado Demo", "email": None, "telefono": None,
-                    "domicilio": "Av. Ejemplo 1234", "comuna_id": comunas["Santiago"].id,
-                },
-                tenant_id=tenant.id, rut="11111111-1",
+        # Datos operacionales y 2º tenant de DEMO: SOLO en dev (SEED_DEMO_DATA=true).
+        # En producción queda catálogos + maestras + tenant real + usuarios, sin demo.
+        if settings.SEED_DEMO_DATA:
+            _seed_demo_data(
+                db, tenant=tenant, roles=roles, ciudades=ciudades, comunas=comunas,
+                colores=colores, sucursales=sucursales, estados_abono=estados_abono,
+                tipos_comision=tipos_comision, pwd=pwd,
             )
-            cliente_demo.domicilio = "Av. Ejemplo 1234"
-            cliente_demo.comuna_id = comunas["Santiago"].id
-            veh_demo, _ = _get_or_create(
-                db, Vehiculo,
-                defaults={
-                    "version_id": version_demo.id, "anio": 2019,
-                    "n_motor": None, "n_chasis": None, "color_id": colores["GRIS"].id,
-                },
-                tenant_id=tenant.id, ppu="DERV01",
-            )
-            veh_demo.color_id = veh_demo.color_id or colores["GRIS"].id
-            db.flush()
-            # Acta ACTIVA (derivada) sobre ese vehículo, si no tiene ninguna.
-            tiene_acta = db.scalar(
-                select(ActaRecepcion.id).where(ActaRecepcion.vehiculo_id == veh_demo.id)
-            )
-            if not tiene_acta:
-                _crear_acta_seed(
-                    db, tenant_id=tenant.id, vehiculo=veh_demo, cliente=cliente_demo,
-                    captador=captador, sucursal_origen=sucursales["Sucursal Rancagua"],
-                    sucursal_venta=sucursales["Sucursal Santiago"],
-                    estado=estado_recep, estado_abono=estados_abono["NO_DEVENGADO"],
-                    tipo_comision=tipos_comision["estandar"], km=45000,
-                    precio=12000000, cerrada=False,
-                )
-
-        # --- Operacional demo: REINGRESO (mismo auto, dos dueños) ---
-        # Un vehículo con un acta ya VENDIDA y otra activa: cubre el caso que el
-        # modelo viejo hacía imposible.
-        cap_stgo = db.scalar(select(User).where(User.email == "cristian@vendemostuautomovil.com"))
-        version_ri = db.scalar(
-            select(VehiculoVersion).join(VehiculoModelo).join(VehiculoMarca)
-            .where(VehiculoModelo.nombre == "Corolla")
-        )
-        if cap_stgo and version_ri and estado_recep and estado_vendido:
-            veh_ri, nuevo = _get_or_create(
-                db, Vehiculo,
-                defaults={"version_id": version_ri.id, "anio": 2017, "color_id": colores["NEGRO"].id},
-                tenant_id=tenant.id, ppu="REING01",
-            )
-            if nuevo or not db.scalar(select(ActaRecepcion.id).where(ActaRecepcion.vehiculo_id == veh_ri.id)):
-                cli_1, _ = _get_or_create(
-                    db, Cliente, defaults={"nombre": "Primer Dueño Demo", "comuna_id": comunas["Santiago"].id},
-                    tenant_id=tenant.id, rut="22222222-2",
-                )
-                cli_2, _ = _get_or_create(
-                    db, Cliente, defaults={"nombre": "Segundo Dueño Demo", "comuna_id": comunas["Santiago"].id},
-                    tenant_id=tenant.id, rut="33333333-3",
-                )
-                # Acta 1: vendida en el pasado (cerrada).
-                _crear_acta_seed(
-                    db, tenant_id=tenant.id, vehiculo=veh_ri, cliente=cli_1, captador=cap_stgo,
-                    sucursal_origen=sucursales["Sucursal Santiago"], sucursal_venta=sucursales["Sucursal Santiago"],
-                    estado=estado_vendido, estado_abono=estados_abono["APLICADO_COMISION"],
-                    tipo_comision=tipos_comision["estandar"], km=60000, precio=8500000,
-                    cerrada=True, vendedor=cap_stgo, precio_final=8300000,
-                )
-                # Acta 2: el mismo auto vuelve, otro dueño, recepción vigente.
-                _crear_acta_seed(
-                    db, tenant_id=tenant.id, vehiculo=veh_ri, cliente=cli_2, captador=cap_stgo,
-                    sucursal_origen=sucursales["Sucursal Santiago"], sucursal_venta=sucursales["Sucursal Santiago"],
-                    estado=estado_recep, estado_abono=estados_abono["NO_DEVENGADO"],
-                    tipo_comision=tipos_comision["gold"], km=88000, precio=7900000, cerrada=False,
-                )
-
-        # --- 2º tenant demo (para probar cambio de contexto del SuperAdmin) ---
-        demo_tenant, _ = _get_or_create(
-            db, Tenant, defaults={"nombre": DEMO_TENANT_NOMBRE, "activo": True},
-            dominio=DEMO_TENANT_DOMINIO,
-        )
-        db.flush()
-        _get_or_create(db, ParametrosComision,
-                       defaults={"pool_pct": 20, "captacion_pct": 40, "venta_pct": 60},
-                       tenant_id=demo_tenant.id)
-        d_nombre, d_dir, d_ciudad = DEMO_SUCURSAL
-        demo_suc, _ = _get_or_create(
-            db, Sucursal,
-            defaults={"direccion": d_dir, "ciudad_id": ciudades[d_ciudad].id},
-            tenant_id=demo_tenant.id, nombre=d_nombre,
-        )
-        du_nombre, du_email, du_tel, du_role = DEMO_USER
-        _get_or_create(
-            db, User,
-            defaults={
-                "nombre": du_nombre, "telefono": du_tel, "role_id": roles[du_role].id,
-                "tenant_id": demo_tenant.id, "sucursal_id": demo_suc.id,
-                "password_hash": pwd, "activo": True,
-            },
-            email=du_email,
-        )
 
         db.commit()
-        print("Seed completado: catálogos, tenants (vendemostuautomovil + demo), sucursales y usuarios listos.")
+        extra = " + datos demo" if settings.SEED_DEMO_DATA else ""
+        print(f"Seed completado: catálogos, maestras, tenant vendemostuautomovil y usuarios{extra}.")
     except Exception:
         db.rollback()
         raise

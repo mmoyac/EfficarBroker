@@ -28,6 +28,8 @@ services:
       - .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://efficar:efficar_dev@db:5432/efficarbroker}
+      # En dev sí queremos los datos demo (derivación, reingreso, 2º tenant) para pruebas.
+      SEED_DEMO_DATA: "true"
     ports:
       - "8000:8000"
     volumes:
