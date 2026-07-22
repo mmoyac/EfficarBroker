@@ -3,6 +3,7 @@ import type {
   Acta,
   ActaCreateInput,
   ActaDetail,
+  ActaFoto,
   ActaUpdateInput,
   AbonoResumen,
   ChecklistEntryInput,
@@ -78,5 +79,50 @@ export async function downloadDocumentoFirma(id: number): Promise<Blob> {
 
 export async function getResumenAbonos(): Promise<AbonoResumen> {
   const { data } = await api.get<AbonoResumen>("/abonos/resumen");
+  return data;
+}
+
+// ---- Galería multimedia del acta (fotos + video 360) ----
+
+export async function listFotos(actaId: number): Promise<ActaFoto[]> {
+  const { data } = await api.get<ActaFoto[]>(`/actas/${actaId}/fotos`);
+  return data;
+}
+
+export async function agregarFotoUrl(actaId: number, url: string): Promise<ActaFoto> {
+  const { data } = await api.post<ActaFoto>(`/actas/${actaId}/fotos`, { url });
+  return data;
+}
+
+export async function subirFoto(actaId: number, file: File): Promise<ActaFoto> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post<ActaFoto>(`/actas/${actaId}/fotos/upload`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
+export async function actualizarFoto(
+  actaId: number,
+  fotoId: number,
+  input: { orden?: number; es_principal?: boolean },
+): Promise<ActaFoto> {
+  const { data } = await api.patch<ActaFoto>(`/actas/${actaId}/fotos/${fotoId}`, input);
+  return data;
+}
+
+export async function eliminarFoto(actaId: number, fotoId: number): Promise<void> {
+  await api.delete(`/actas/${actaId}/fotos/${fotoId}`);
+}
+
+export async function actualizarVideo(
+  actaId: number,
+  videoYoutubeUrl: string | null,
+): Promise<{ video_youtube_url: string | null }> {
+  const { data } = await api.patch<{ video_youtube_url: string | null }>(
+    `/actas/${actaId}/video`,
+    { video_youtube_url: videoYoutubeUrl },
+  );
   return data;
 }

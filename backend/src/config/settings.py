@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     # Seed
     SEED_DEFAULT_PASSWORD: str = "admin123"
 
+    # Media / storage de fotos de la galería
+    # MEDIA_ROOT: directorio en disco donde se guardan los archivos subidos.
+    # MEDIA_URL_BASE: prefijo de URL bajo el que se sirven (montado en main.py).
+    MEDIA_ROOT: str = "/app/media"
+    MEDIA_URL_BASE: str = "/media"
+    MEDIA_MAX_BYTES: int = 10 * 1024 * 1024  # 10 MB por archivo
+    # Tipos MIME de imagen aceptados en la subida (todo enum queda fuera de literales sueltos).
+    MEDIA_ALLOWED_MIME: str = "image/jpeg,image/png,image/webp"
+
     # Tasacion / scraping
     TASACION_SCRAPING_ENABLED: bool = True
     TASACION_MARKET_PROVIDER: str = "chileautos"
@@ -34,6 +43,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.BACKEND_CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def media_allowed_mime(self) -> set[str]:
+        return {m.strip() for m in self.MEDIA_ALLOWED_MIME.split(",") if m.strip()}
 
 
 @lru_cache

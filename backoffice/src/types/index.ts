@@ -293,6 +293,7 @@ export interface Acta {
   ppu: string;
   cliente: string;
   captador: string;
+  captador_user_id: number;
   vendedor: string | null;
   vendedor_user_id: number | null;
   estado: string;
@@ -317,6 +318,19 @@ export interface Acta {
   cerrada: boolean;
   motivo_cierre: string | null;
   fecha_cierre: string | null;
+  video_youtube_url: string | null;
+  foto_principal_url: string | null;
+  fotos_count: number;
+  tiene_video: boolean;
+}
+
+export interface ActaFoto {
+  id: number;
+  acta_id: number;
+  url: string;
+  orden: number;
+  es_principal: boolean;
+  origen: string; // URL_CLOUD | ARCHIVO
 }
 
 export interface EquipoVenta {

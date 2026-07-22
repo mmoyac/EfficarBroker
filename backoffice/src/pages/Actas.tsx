@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { listActas } from "@/services/actas";
+import GaleriaMini from "@/components/GaleriaMini";
 import { useAuth } from "@/context/AuthContext";
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -97,12 +98,17 @@ export default function Actas() {
                 >
                   <td className="px-4 py-3 font-mono font-medium text-brand-ink">{a.ppu}</td>
                   <td className="px-4 py-3">
-                    {a.vehiculo.marca} {a.vehiculo.modelo} <span className="text-brand-muted">{a.vehiculo.anio}</span>
-                    {a.derivado && (
-                      <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
-                        Derivado → {a.sucursal_venta}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <GaleriaMini acta={a} />
+                      <div>
+                        {a.vehiculo.marca} {a.vehiculo.modelo} <span className="text-brand-muted">{a.vehiculo.anio}</span>
+                        {a.derivado && (
+                          <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                            Derivado → {a.sucursal_venta}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-brand-muted">{a.cliente}</td>
                   {!mine && <td className="px-4 py-3">{a.captador}</td>}

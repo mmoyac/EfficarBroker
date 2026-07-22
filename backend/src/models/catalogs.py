@@ -117,6 +117,20 @@ class EstadoPagoComision(TimestampMixin, Base):
     nombre: Mapped[str] = mapped_column(String(80), nullable=False)
 
 
+class OrigenFoto(TimestampMixin, Base):
+    """Catálogo del origen de una foto de la galería.
+
+    URL_CLOUD: la URL vive en un cloud externo (WordPress u otro); no es nuestra.
+    ARCHIVO: el archivo se subió al storage propio del backend (borrable con la foto).
+    """
+
+    __tablename__ = "origenes_foto"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)  # URL_CLOUD, ARCHIVO
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+
+
 class TipoComision(TimestampMixin, Base):
     """Catálogo de tipo de comisión de corretaje (Estándar 5% / Gold 3%).
 

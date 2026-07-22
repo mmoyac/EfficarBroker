@@ -77,6 +77,7 @@ class ActaOut(BaseModel):
     ppu: str  # duplicado a nivel raíz para simplificar la grilla
     cliente: str
     captador: str
+    captador_user_id: int
     vendedor: str | None = None
     vendedor_user_id: int | None = None
     estado: str
@@ -101,6 +102,11 @@ class ActaOut(BaseModel):
     cerrada: bool
     motivo_cierre: str | None = None
     fecha_cierre: date | None = None
+    video_youtube_url: str | None = None
+    # Resumen de la galería para las grillas (sin traer todas las fotos).
+    foto_principal_url: str | None = None
+    fotos_count: int = 0
+    tiene_video: bool = False
 
 
 class ActaChecklistOut(BaseModel):

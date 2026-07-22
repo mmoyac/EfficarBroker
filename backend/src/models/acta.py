@@ -87,6 +87,10 @@ class ActaRecepcion(TenantMixin, TimestampMixin, Base):
     )
     fecha_cierre: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # --- Multimedia de la publicación ---
+    # Enlace de video 360 (YouTube). Las fotos cuelgan en acta_fotos.
+    video_youtube_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     vehiculo: Mapped["Vehiculo"] = relationship(back_populates="actas", lazy="joined")  # noqa: F821
     cliente: Mapped["Cliente"] = relationship(lazy="joined")  # noqa: F821
     estado: Mapped["EstadoVehiculo"] = relationship(lazy="joined")  # noqa: F821
@@ -99,6 +103,12 @@ class ActaRecepcion(TenantMixin, TimestampMixin, Base):
     motivo_cierre: Mapped["MotivoCierreActa | None"] = relationship(lazy="joined")  # noqa: F821
     checklist: Mapped[list["ActaChecklist"]] = relationship(
         back_populates="acta", cascade="all, delete-orphan", lazy="selectin"
+    )
+    fotos: Mapped[list["ActaFoto"]] = relationship(
+        back_populates="acta",
+        cascade="all, delete-orphan",
+        order_by="ActaFoto.orden, ActaFoto.id",
+        lazy="selectin",
     )
 
     @property
@@ -126,6 +136,32 @@ class ActaChecklist(Base):
     acta: Mapped["ActaRecepcion"] = relationship(back_populates="checklist")
     item: Mapped["ChecklistItem"] = relationship(lazy="joined")  # noqa: F821
     estado_checklist: Mapped["EstadoChecklist | None"] = relationship(lazy="joined")  # noqa: F821
+
+
+class ActaFoto(TenantMixin, TimestampMixin, Base):
+    """Foto de la galería de UNA publicación (acta).
+
+    Cuelga del acta y no del vehículo: el material visual es de esa consignación;
+    al re-consignar el auto con otro dueño se carga una galería nueva sin pisar la
+    anterior. `es_principal` es la imagen destacada (grande); una sola por acta,
+    garantizada por índice único parcial en la migración.
+    """
+
+    __tablename__ = "acta_fotos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    acta_id: Mapped[int] = mapped_column(
+        ForeignKey("actas_recepcion.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    orden: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    es_principal: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    origen_id: Mapped[int] = mapped_column(
+        ForeignKey("origenes_foto.id", ondelete="RESTRICT"), index=True, nullable=False
+    )
+
+    acta: Mapped["ActaRecepcion"] = relationship(back_populates="fotos")
+    origen: Mapped["OrigenFoto"] = relationship(lazy="joined")  # noqa: F821
 
 
 class ActaEstadoHistorial(TenantMixin, Base):

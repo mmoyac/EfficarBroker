@@ -151,6 +151,7 @@ def _to_out(a: ActaRecepcion) -> ActaOut:
         ppu=a.vehiculo.ppu,
         cliente=a.cliente.nombre,
         captador=a.captador.nombre,
+        captador_user_id=a.captador_user_id,
         vendedor=a.vendedor.nombre if a.vendedor else None,
         vendedor_user_id=a.vendedor_user_id,
         estado=a.estado.nombre, estado_code=a.estado.code,
@@ -170,6 +171,10 @@ def _to_out(a: ActaRecepcion) -> ActaOut:
         cerrada=a.cerrada,
         motivo_cierre=a.motivo_cierre.nombre if a.motivo_cierre else None,
         fecha_cierre=a.fecha_cierre,
+        video_youtube_url=a.video_youtube_url,
+        foto_principal_url=next((f.url for f in a.fotos if f.es_principal), None),
+        fotos_count=len(a.fotos),
+        tiene_video=a.video_youtube_url is not None,
     )
 
 

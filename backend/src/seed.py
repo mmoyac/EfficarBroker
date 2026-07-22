@@ -25,6 +25,7 @@ from src.models.catalogs import (
     MenuItem,
     MenuSeccion,
     MotivoCierreActa,
+    OrigenFoto,
     Role,
     TipoChecklistItem,
     TipoComision,
@@ -74,7 +75,9 @@ ESTADOS_VEHICULO = [
 MENU = [
     ("veh_gestion", "Gestión de Vehículos", "car", 10, [
         ("veh_tasacion", "Tasación Rápida", "calculator", "/tasacion", 10, ["Sales"]),
-        ("veh_actas", "Actas de Recepción", "clipboard-list", "/actas", 20, ["Sales"]),
+        # "Actas de Recepción" (/actas) es la grilla de supervisión: la ve Management
+        # vía `val_actas`. Para Ventas era redundante con "Mis Captaciones" (misma
+        # data, sin acciones), así que no se incluye aquí.
         ("veh_captaciones", "Mis Captaciones", "list", "/captaciones", 30, ["Sales"]),
         ("veh_derivadas", "Ventas Derivadas a mi Sucursal", "arrow-left-right", "/captaciones/derivadas", 40, ["Sales"]),
     ]),
@@ -87,6 +90,7 @@ MENU = [
     ]),
     ("control_valid", "Control y Validaciones", "shield-check", 40, [
         ("val_pendientes", "Pendientes de Aprobación", "inbox", "/validaciones/pendientes", 10, ["Management"]),
+        ("val_actas", "Actas / Publicación", "clipboard-list", "/actas", 15, ["Management"]),
         ("val_catalogo", "Gestor del Catálogo", "layout-grid", "/catalogo", 20, ["Management"]),
         ("val_vehiculos", "Vehículos", "car", "/vehiculos", 30, ["Management"]),
     ]),
@@ -341,6 +345,9 @@ def seed() -> None:
             _get_or_create(db, TipoComisionEjecutivo, defaults={"nombre": nombre}, code=code)
         for code, nombre in [("PENDIENTE", "Pendiente"), ("PAGADA", "Pagada")]:
             _get_or_create(db, EstadoPagoComision, defaults={"nombre": nombre}, code=code)
+        # Galería multimedia: origen de cada foto (URL externa vs archivo propio).
+        for code, nombre in [("URL_CLOUD", "URL del cloud"), ("ARCHIVO", "Archivo subido")]:
+            _get_or_create(db, OrigenFoto, defaults={"nombre": nombre}, code=code)
         colores: dict[str, Color] = {}
         for code, nombre in COLORES:
             col, _ = _get_or_create(db, Color, defaults={"nombre": nombre}, code=code)

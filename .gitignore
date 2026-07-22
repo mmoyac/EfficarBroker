@@ -32,3 +32,6 @@ Thumbs.db
 # DB
 *.sqlite3
 pgdata/
+
+# Token de Docker Hub (nunca versionar)
+docs/dockerhub.txt

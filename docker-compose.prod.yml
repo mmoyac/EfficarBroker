@@ -1,0 +1,61 @@
+# Stack de PRODUCCIÓN para el VPS effi4tech.
+# Aislado de EffiGuard: contenedores con prefijo efficar_, imágenes propias y
+# volúmenes propios. Comparte SOLO la red externa `general-net` (por la que el
+# `nginx_proxy` alcanza al frontend). NO recrea esa red.
+#
+# Requiere un archivo .env en el mismo directorio (ver .env.prod.example).
+# Se despliega con: docker compose -f docker-compose.prod.yml pull && up -d
+# (en el VPS el archivo se llama docker-compose.prod.yml o se copia como el default).
+
+services:
+  db:
+    image: postgres:15
+    container_name: efficar_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - efficar_pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ${DOCKER_USERNAME}/efficar-backend:latest
+    container_name: efficar_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - efficar_media:/app/media
+    networks:
+      - internal
+
+  backoffice:
+    image: ${DOCKER_USERNAME}/efficar-frontend:latest
+    container_name: efficar_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - internal      # para alcanzar a `backend`
+      - general-net   # para que el nginx_proxy compartido lo alcance
+
+networks:
+  internal:
+    driver: bridge
+  general-net:
+    external: true
+
+volumes:
+  efficar_pgdata:
+  efficar_media:

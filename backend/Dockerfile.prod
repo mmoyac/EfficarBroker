@@ -1,0 +1,32 @@
+# Imagen de PRODUCCIÓN del backend.
+# A diferencia del Dockerfile de dev (hot-reload, código montado como volumen),
+# aquí el código se copia dentro de la imagen y el arranque pasa por entrypoint.sh
+# (espera DB -> migra -> siembra -> uvicorn con workers).
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# build-essential/libpq-dev para psycopg/bcrypt; postgresql-client aporta `pg_isready`
+# que usa el entrypoint para esperar a Postgres.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Virtualenv aislado (no instala en el Python del sistema).
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv "$VIRTUAL_ENV"
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY . .
+RUN chmod +x entrypoint.sh
+
+EXPOSE 8000
+
+ENTRYPOINT ["./entrypoint.sh"]

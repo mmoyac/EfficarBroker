@@ -3,6 +3,15 @@ import type { AccessToken } from "@/types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
 
+// Origen del backend (sin el prefijo /api/v1), para servir archivos estáticos
+// como las fotos subidas (`/media/...`).
+export const API_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
+
+/** URL absoluta de un asset: deja las URLs del cloud intactas y prefija las locales. */
+export function assetUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `${API_ORIGIN}${url}`;
+}
+
 const ACCESS_KEY = "efficar_access";
 const REFRESH_KEY = "efficar_refresh";
 

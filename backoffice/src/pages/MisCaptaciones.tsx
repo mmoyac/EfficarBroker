@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteActa, downloadDocumentoFirma, listActas } from "@/services/actas";
+import GaleriaMini from "@/components/GaleriaMini";
 import EditarActaModal from "@/pages/EditarActaModal";
 import RecepcionarModal from "@/pages/RecepcionarModal";
 import { CerrarSinVentaModal, RegistrarVentaModal } from "@/pages/ActaModals";
@@ -95,12 +96,17 @@ export default function MisCaptaciones() {
                 <tr key={a.id} className="border-b border-brand-surface-2 last:border-0">
                   <td className="px-4 py-3 font-mono font-medium text-brand-ink">{a.ppu}</td>
                   <td className="px-4 py-3">
-                    {a.vehiculo.marca} {a.vehiculo.modelo} <span className="text-brand-muted">{a.vehiculo.anio}</span>
-                    {a.derivado && (
-                      <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
-                        Derivado → {a.sucursal_venta}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <GaleriaMini acta={a} />
+                      <div>
+                        {a.vehiculo.marca} {a.vehiculo.modelo} <span className="text-brand-muted">{a.vehiculo.anio}</span>
+                        {a.derivado && (
+                          <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                            Derivado → {a.sucursal_venta}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-brand-muted">{a.cliente}</td>
                   <td className="px-4 py-3">{a.vendedor ?? <span className="text-brand-muted-2">—</span>}</td>

@@ -1,0 +1,4 @@
+# Los scripts de shell DEBEN conservar saltos de línea LF: con CRLF, el shebang
+# se rompe dentro del contenedor Linux ("no such file or directory").
+*.sh text eol=lf
+entrypoint.sh text eol=lf
