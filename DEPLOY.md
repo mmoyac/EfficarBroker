@@ -64,19 +64,73 @@ valores `CAMBIAR_*` (incluye `DOCKER_USERNAME`, credenciales de Postgres, `DATAB
 
 ---
 
-## 4. Alta de tenant (subdominio)
+## 4. Alta de un NUEVO tenant (automotora) — runbook
 
+Cada automotora vive en su propio subdominio `efficar-<slug>.effi4tech.cl`, todos
+apuntando al MISMO contenedor `efficar_frontend`. La multitenancy es por fila
+(`tenant_id` en el JWT): el tenant se resuelve por el usuario que inicia sesión, no
+por el dominio. Un tenant nuevo son **3 pasos**:
+
+### Paso 1 — Fila del tenant + su usuario admin en la BD
+Un tenant nuevo NO viene sembrado (el seed solo crea `vendemostuautomovil`). Se crea
+desde el backoffice con un usuario **SuperAdmin**:
+
+1. Entra como SuperAdmin (`mmoyainfo@gmail.com`).
+2. **Panel de Inquilinos → Directorio de Clientes** (`/saas/tenants`): crea el tenant
+   (nombre, dominio, datos corporativos) y su primer usuario `TenantAdmin`.
+
+> Alternativa por SQL (avanzado, si no usas la UI): insertar en `tenants` y un `users`
+> con `role_id` de `TenantAdmin` y `tenant_id` del nuevo tenant.
+
+### Paso 2 — Vhost nginx en el VPS
 ```sh
 cd /root/docker/efficar
-./add-tenant.sh vendemostuautomovil
-# -> genera /root/docker/nginx-proxy/conf.d/efficar-vendemostuautomovil.conf
-#    y recarga nginx. Queda en https://efficar-vendemostuautomovil.effi4tech.cl
+./add-tenant.sh <slug>          # ej: ./add-tenant.sh autoexpress
+# genera /root/docker/nginx-proxy/conf.d/efficar-<slug>.conf y recarga nginx.
 ```
+El script valida que el slug no exista y usa el cert wildcard `*.effi4tech.cl` (sin
+emitir certificado nuevo).
 
-- El tenant `vendemostuautomovil` **ya existe en la BD** (lo crea el seed), así que el
-  login funciona sin pasos extra.
-- Para un tenant **nuevo distinto**, además del vhost hay que crear su fila en `tenants`
-  y sus usuarios (por UI de SuperAdmin o extendiendo el seed).
+### Paso 3 — Registro DNS
+En el proveedor DNS de `effi4tech.cl` (no hay wildcard DNS; es un registro por
+subdominio), agrega:
+
+| Tipo | Nombre | Valor |
+|---|---|---|
+| A | `efficar-<slug>` | `168.231.96.205` |
+
+Cuando propague, el tenant entra en `https://efficar-<slug>.effi4tech.cl` con el
+usuario admin del Paso 1. **No hace falta redeploy ni tocar el cert.**
+
+### Ejemplo real ya montado: `vendemostuautomovil`
+- Fila en BD: creada por el seed (con el equipo real).
+- Vhost: `./add-tenant.sh vendemostuautomovil` ✅
+- DNS: A `efficar-vendemostuautomovil` → `168.231.96.205` ✅
+- Vivo en https://efficar-vendemostuautomovil.effi4tech.cl
+
+---
+
+## 4b. Qué siembra el seed (y el flag SEED_DEMO_DATA)
+
+El backend siembra en cada arranque (idempotente, controlado por `SEED_ON_START`):
+
+**Siempre (catálogos + maestras):** roles, ciudades/comunas, estados de vehículo,
+marcas/modelos/versiones, checklist del acta, tipos de comisión, menú por rol, el
+tenant real `vendemostuautomovil` con sus sucursales y **todo el equipo** (SuperAdmin
+`mmoyainfo@gmail.com` + usuarios reales), y sus parámetros de comisión.
+
+**Solo si `SEED_DEMO_DATA=true` (dev):** datos operacionales de prueba (vehículos
+`DERV01`/`REING01` con sus actas/captaciones de derivación y reingreso) **y un 2º
+tenant demo** (`Automotora Demo`) para probar el cambio de contexto del SuperAdmin.
+
+| Entorno | SEED_ON_START | SEED_DEMO_DATA | Resultado |
+|---|---|---|---|
+| Producción (`.env` del VPS) | `true` | **`false`** | catálogos + maestras + tenant real + usuarios |
+| Desarrollo (`docker-compose.yml`) | (seed manual) | `true` | lo anterior + datos y tenant demo para pruebas |
+
+> Cambiar `SEED_DEMO_DATA` no borra lo ya existente (el seed no hace DELETE). Ponerlo
+> en `false` evita crear demo en los PRÓXIMOS arranques/deploys; no limpia lo que ya
+> se sembró. Para limpiar demo previo hay que borrarlo a mano en la BD.
 
 ---
 

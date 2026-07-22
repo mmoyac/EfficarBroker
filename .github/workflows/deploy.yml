@@ -40,7 +40,7 @@ jobs:
           file: ./backoffice/Dockerfile.prod
           push: true
           build-args: |
-            VITE_API_URL=/api/v1
+            VITE_API_URL=https://efficar-api.effi4tech.cl/api/v1
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/efficar-frontend:latest
             ${{ secrets.DOCKER_USERNAME }}/efficar-frontend:${{ github.sha }}

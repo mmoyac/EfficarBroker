@@ -38,7 +38,8 @@ services:
     volumes:
       - efficar_media:/app/media
     networks:
-      - internal
+      - internal      # para alcanzar a `db`
+      - general-net   # para que el nginx_proxy exponga la API en efficar-api.effi4tech.cl
 
   backoffice:
     image: ${DOCKER_USERNAME}/efficar-frontend:latest

@@ -1,8 +1,8 @@
 ## 1. Repositorio GitHub y ramas
 
 - [x] 1.1 Enlazar el remoto: `git remote add origin https://github.com/mmoyac/EfficarBroker.git`
-- [ ] 1.2 Crear/publicar la rama `main` en GitHub (fusionar `master → main` o promover `master` a default) — el deploy se dispara solo desde `main` *(acción tuya: requiere push/merge)*
-- [ ] 1.3 Definir el flujo de trabajo: features en ramas → PR hacia `main`; integrar a `main` = desplegar *(acordar/documentado en DEPLOY.md)*
+- [x] 1.2 Rama `main` creada y pusheada a GitHub (commit `b5006ef`) — disparó el primer deploy
+- [x] 1.3 Flujo de trabajo documentado en DEPLOY.md (features → PR a `main`; integrar a `main` = desplegar)
 
 ## 2. Backend — build de producción
 
@@ -44,7 +44,7 @@
 
 ## 8. Verificación end-to-end
 
-- [ ] 8.1 Primer deploy REAL: confirmar que las imágenes se publican, el VPS las baja y los contenedores quedan `Up` *(pendiente: requiere push a `main` + VPS)*
-- [x] 8.2 Verificado en local (stack prod completo con las imágenes reales): 17 migraciones aplicadas, seed cargado (catálogos + tenants + usuarios), login del SuperAdmin OK
-- [x] 8.3 Verificado en local que el SPA se sirve por nginx (HTTP 200 html) y que `/api/v1` y `/docs` responden por el mismo origen; *falta solo la parte de dominio/DNS `efficar-vendemostuautomovil.effi4tech.cl` (requiere VPS)*
-- [ ] 8.4 Probar reinicio del backend y confirmar que el seed idempotente no duplica datos *(idempotencia confirmada por auditoría de código y un arranque limpio; el recuento tras doble arranque se validará en el deploy real)*
+- [x] 8.1 Primer deploy REAL exitoso: imágenes publicadas en Docker Hub, VPS las bajó, `efficar_db/backend/frontend` quedaron `Up` (~100s)
+- [x] 8.2 Verificado en PRODUCCIÓN: 17 migraciones aplicadas, seed cargado (catálogos + tenants + usuarios), login del SuperAdmin devuelve JWT
+- [x] 8.3 Verificado en PRODUCCIÓN: SPA servido por nginx (title EffiCarBroker), `/api/v1` (200) y login por el mismo origen; vhost del tenant creado. *Pendiente solo el registro DNS A `efficar-vendemostuautomovil.effi4tech.cl → 168.231.96.205` (acción del usuario en su proveedor DNS)*
+- [x] 8.4 Reinicio del backend en producción: seed re-ejecutado sin duplicar (10 usuarios antes y después)
