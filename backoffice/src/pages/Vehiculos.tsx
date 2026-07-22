@@ -39,7 +39,7 @@ export default function Vehiculos() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar por PPU…"
-          className="w-64 rounded-lg border border-brand-surface-2 px-3 py-2 text-sm outline-none focus:border-brand-accent"
+          className="w-full rounded-lg border border-brand-surface-2 px-3 py-2 text-sm outline-none focus:border-brand-accent sm:w-64"
         />
         <button type="submit" className="rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-black hover:bg-brand-accent-600">
           Buscar
@@ -54,8 +54,9 @@ export default function Vehiculos() {
         </p>
       )}
 
+      {/* Escritorio: tabla. Móvil: tarjetas apiladas (mejor lectura en 5"). */}
       {data && data.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-brand-surface-2 bg-white">
+        <div className="hidden overflow-x-auto rounded-xl border border-brand-surface-2 bg-white md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-brand-surface-2 text-left text-brand-muted">
@@ -88,6 +89,41 @@ export default function Vehiculos() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {data && data.length > 0 && (
+        <ul className="space-y-3 md:hidden">
+          {data.map((v) => (
+            <li key={v.id} className="rounded-xl border border-brand-surface-2 bg-white p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-mono font-semibold text-brand-ink">{v.ppu}</p>
+                  <p className="truncate text-sm">
+                    {v.marca} {v.modelo} <span className="text-brand-muted">{v.version}</span>
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm text-brand-muted">{v.anio}</span>
+              </div>
+              <p className="mt-2 text-xs text-brand-muted">
+                Motor {v.n_motor ?? "—"} · Chasis {v.n_chasis ?? "—"}
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => setDetalleFor(v)}
+                  className="flex-1 rounded-lg border border-brand-surface-2 px-3 py-2 text-sm hover:bg-brand-surface"
+                >
+                  Historial
+                </button>
+                <button
+                  onClick={() => setEditFor(v)}
+                  className="flex-1 rounded-lg border border-brand-surface-2 px-3 py-2 text-sm hover:bg-brand-surface"
+                >
+                  Editar ficha
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       {editFor && (
@@ -136,7 +172,7 @@ function EditarFichaModal({ ficha, onClose, onDone }: { ficha: VehiculoFicha; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-brand-ink">Editar ficha · {ficha.ppu}</h2>
         {conHistorial && (
           <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
@@ -186,7 +222,7 @@ function HistorialModal({ ficha, onClose }: { ficha: VehiculoFicha; onClose: () 
   const historialQ = useQuery({ queryKey: ["vehiculo-actas", ficha.id], queryFn: () => getVehiculoActas(ficha.id) });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-brand-ink">Historial de recepciones · {ficha.ppu}</h2>
         <p className="mb-3 text-sm text-brand-muted">{ficha.marca} {ficha.modelo} {ficha.version}</p>
         {historialQ.isLoading && <p className="text-sm text-brand-muted">Cargando…</p>}

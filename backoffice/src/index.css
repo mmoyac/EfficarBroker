@@ -17,4 +17,22 @@ body {
   background-color: theme("colors.brand.surface");
   color: theme("colors.brand.ink");
   font-family: theme("fontFamily.sans");
+  /* Resguardo: ninguna vista debe provocar scroll horizontal de página en móvil. */
+  overflow-x: hidden;
+}
+
+@layer utilities {
+  /* Safe-area (notch / barra del sistema) para la PWA instalada en iOS/Android. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
 }

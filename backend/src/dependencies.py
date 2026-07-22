@@ -4,11 +4,14 @@ from dataclasses import dataclass
 from typing import Any
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.config import settings
 from src.database import get_db
+from src.models.tenant import Tenant
 from src.models.user import User
 from src.utils.security import ACCESS_TOKEN, decode_token
 
@@ -88,6 +91,53 @@ def get_effective_tenant_id(ctx: TenantContext = Depends(get_current_tenant)) ->
             detail="Selecciona un tenant activo para operar sobre sus datos.",
         )
     return ctx.tenant_id
+
+
+def get_tenant_by_host(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Tenant | None:
+    """Resuelve el tenant a partir del dominio de la petición (host-aware).
+
+    Usado por endpoints PÚBLICOS sin auth (manifest/iconos PWA): el `tenant_id`
+    no viene del JWT sino del dominio por el que entra el navegador. Devuelve None
+    si el host no mapea a ningún tenant activo → el llamador cae a la identidad por
+    defecto de la plataforma.
+
+    Dos formas de resolución:
+    1. **Backoffice** (caso real de prod): el host es `efficar-<slug>.effi4tech.cl`
+       (`APP_HOST_PREFIX`/`APP_HOST_SUFFIX`). Se extrae el `slug` y se busca
+       `Tenant.slug`. La app es la misma para todos los tenants sobre distintos
+       subdominios; el slug es la clave por-tenant del backoffice.
+    2. **Dominio público** (para el futuro catálogo): match directo `Tenant.dominio`
+       (la landing .com del tenant), distinto del subdominio del backoffice.
+
+    En producción el front está detrás de nginx, que reenvía el dominio real en
+    `Host` (`proxy_set_header Host $host`); se contempla `X-Forwarded-Host` por si
+    hubiera un proxy intermedio.
+    """
+    raw = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    # Primer host de la lista, sin puerto, en minúsculas.
+    host = raw.split(",")[0].strip().split(":")[0].lower()
+    if not host:
+        return None
+
+    # 1) Backoffice: efficar-<slug>.effi4tech.cl -> Tenant.slug
+    prefix = settings.APP_HOST_PREFIX.lower()
+    suffix = settings.APP_HOST_SUFFIX.lower()
+    if host.startswith(prefix) and host.endswith(suffix):
+        slug = host[len(prefix) : len(host) - len(suffix)]
+        if slug:
+            tenant = db.scalars(
+                select(Tenant).where(Tenant.slug == slug, Tenant.activo.is_(True))
+            ).one_or_none()
+            if tenant is not None:
+                return tenant
+
+    # 2) Dominio público de la landing (.com) -> Tenant.dominio
+    return db.scalars(
+        select(Tenant).where(Tenant.dominio == host, Tenant.activo.is_(True))
+    ).one_or_none()
 
 
 def require_roles(*roles: str):

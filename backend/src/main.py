@@ -8,6 +8,7 @@ from src.config import settings
 from src.routers import (
     abonos,
     actas,
+    app_identity,
     auth,
     catalogs,
     comisiones,
@@ -42,6 +43,9 @@ app.include_router(abonos.router, prefix=settings.API_V1_PREFIX)
 app.include_router(comisiones.router, prefix=settings.API_V1_PREFIX)
 app.include_router(multimedia.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasacion.router, prefix=settings.API_V1_PREFIX)
+# Identidad de app PWA (manifest e iconos host-aware): SIN prefijo /api/v1,
+# deben vivir en rutas estables del mismo origen que la página.
+app.include_router(app_identity.router)
 
 # Servir los archivos subidos de la galería (fotos con origen ARCHIVO).
 Path(settings.MEDIA_ROOT).mkdir(parents=True, exist_ok=True)

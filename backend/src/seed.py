@@ -213,6 +213,9 @@ VEHICLE_CATALOG = {
 
 TENANT_DOMINIO = "vendemostuautomovil.com"
 TENANT_NOMBRE = "Vendemos Tu Automóvil"
+# Slug del backoffice: subdominio efficar-<slug>.effi4tech.cl por el que se sirve la
+# app a este tenant (ver add-tenant.sh / DEPLOY.md). Lo usa la identidad PWA host-aware.
+TENANT_SLUG = "vendemostuautomovil"
 # Datos corporativos para el encabezado/firma del documento (del acta real).
 TENANT_CORP = {
     "razon_social": "Vendemos tu Automóvil SPA",
@@ -234,6 +237,7 @@ SUPERADMIN_USER = ("Marcelo Moya", "mmoyainfo@gmail.com", None, "SuperAdmin")
 # Segundo tenant de demostración (para probar el cambio de contexto del SuperAdmin)
 DEMO_TENANT_DOMINIO = "demo.efficarbroker.com"
 DEMO_TENANT_NOMBRE = "Automotora Demo"
+DEMO_TENANT_SLUG = "demo"
 DEMO_SUCURSAL = ("Sucursal Demo Centro", "Av. Demo 100", "Santiago")
 DEMO_USER = ("Admin Demo", "admin@demo.efficarbroker.com", None, "TenantAdmin")
 
@@ -388,6 +392,7 @@ def _seed_demo_data(
         db, Tenant, defaults={"nombre": DEMO_TENANT_NOMBRE, "activo": True},
         dominio=DEMO_TENANT_DOMINIO,
     )
+    demo_tenant.slug = DEMO_TENANT_SLUG
     db.flush()
     _get_or_create(db, ParametrosComision,
                    defaults={"pool_pct": 20, "captacion_pct": 40, "venta_pct": 60},
@@ -536,6 +541,8 @@ def seed() -> None:
         _get_or_create(db, ParametrosComision,
                        defaults={"pool_pct": 20, "captacion_pct": 40, "venta_pct": 60},
                        tenant_id=tenant.id)
+        # Backfill del slug de backoffice (también sobre el tenant ya existente).
+        tenant.slug = TENANT_SLUG
         tenant.razon_social = TENANT_CORP["razon_social"]
         tenant.rut = TENANT_CORP["rut"]
         tenant.giro = TENANT_CORP["giro"]

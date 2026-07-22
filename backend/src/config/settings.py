@@ -39,6 +39,20 @@ class Settings(BaseSettings):
     # Tipos MIME de imagen aceptados en la subida (todo enum queda fuera de literales sueltos).
     MEDIA_ALLOWED_MIME: str = "image/jpeg,image/png,image/webp"
 
+    # PWA / identidad de app por tenant (manifest e iconos host-aware).
+    # Identidad por defecto cuando el Host no mapea a ningún tenant (dev/staging).
+    PWA_APP_NAME: str = "EffiCarBroker"
+    PWA_THEME_COLOR: str = "#222732"  # brand.dark
+    PWA_BACKGROUND_COLOR: str = "#ffffff"
+    # Directorio de caché en disco de los iconos generados (por tenant+tamaño+variante+hash del logo).
+    PWA_ICON_CACHE_ROOT: str = "/app/media/_app_icons"
+    # El backoffice se sirve por tenant en `<prefix><slug><suffix>` (ej.
+    # `efficar-vendemostuautomovil.effi4tech.cl`). La identidad PWA host-aware extrae
+    # el `slug` del Host para resolver el tenant (la multitenancy de la app es por JWT,
+    # no por `dominio`, así que el dominio del backoffice NO es `Tenant.dominio`).
+    APP_HOST_PREFIX: str = "efficar-"
+    APP_HOST_SUFFIX: str = ".effi4tech.cl"
+
     # Tasacion / scraping
     TASACION_SCRAPING_ENABLED: bool = True
     TASACION_MARKET_PROVIDER: str = "chileautos"

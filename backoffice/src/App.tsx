@@ -20,6 +20,7 @@ import EstadoResultado from "@/pages/EstadoResultado";
 import Tasacion from "@/pages/Tasacion";
 import CatalogoVehicular from "@/pages/CatalogoVehicular";
 import Placeholder from "@/pages/Placeholder";
+import PwaUpdatePrompt from "@/components/PwaUpdatePrompt";
 
 export default function App() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="*" element={<Placeholder />} />
           </Route>
         </Routes>
+        <PwaUpdatePrompt />
       </AuthProvider>
     </BrowserRouter>
   );

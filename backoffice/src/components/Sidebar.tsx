@@ -3,12 +3,12 @@ import { useNavigationMenu } from "@/hooks/useNavigationMenu";
 import { useAuth } from "@/context/AuthContext";
 import TenantSwitcher from "@/components/TenantSwitcher";
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   const { data, isLoading, isError } = useNavigationMenu();
 
   return (
-    <aside className="flex h-screen w-64 flex-col bg-brand-dark text-white">
+    <aside className="flex h-screen w-64 flex-col bg-brand-dark pt-safe text-white">
       <div className="flex items-center gap-2 px-5 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-accent font-bold text-black">
           EC
@@ -34,8 +34,9 @@ export default function Sidebar() {
                 <li key={item.code}>
                   <NavLink
                     to={item.ruta}
+                    onClick={onNavigate}
                     className={({ isActive }) =>
-                      `block rounded-lg px-3 py-2 text-sm transition ${
+                      `block rounded-lg px-3 py-2.5 text-sm transition ${
                         isActive
                           ? "bg-brand-accent font-medium text-black"
                           : "text-brand-surface-2 hover:bg-brand-dark-700"
